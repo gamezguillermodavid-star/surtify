@@ -1,0 +1,36 @@
+# dependencias
+/node_modules
+/.pnp
+.pnp.js
+
+# entornos y credenciales — NUNCA subir esto
+.env
+.env.local
+.env.*.local
+.env.production
+
+# build de Next.js
+/.next/
+/out/
+/build
+
+# Supabase local
+.supabase/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# sistema
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

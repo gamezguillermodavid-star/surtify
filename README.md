@@ -1,0 +1,74 @@
+# Surtify — precios de gasolineras en comunidad
+
+Aplicación de código abierto para encontrar y compartir precios reales de gasolineras, mantenidos por una comunidad de usuarios en tiempo real. Mapa con geolocalización, confirmación de precios estilo Waze, y un sistema de progreso por niveles que convierte reportar un precio en algo parecido a jugar.
+
+## Qué hace
+
+- Mapa con la ubicación del usuario y la gasolinera más barata cercana
+- Precios reportados y confirmados por la comunidad, sin depender de fuentes oficiales con retraso
+- Fichas de gasolinera con fotos, servicios (cafetería, lavado, tienda...) y comentarios
+- Sistema de niveles, rachas y misiones para incentivar los aportes
+- API pública de datos agregados (en desarrollo)
+
+Documentación completa de la arquitectura técnica y del modelo de datos en [`ARQUITECTURA.md`](./ARQUITECTURA.md).
+
+## Stack
+
+Next.js · TypeScript · Tailwind CSS · Supabase (PostgreSQL + Auth) · Mapbox
+
+## Estructura del proyecto
+
+```
+app/
+  auth/       → registro y verificación OTP
+  map/        → pantalla principal del mapa
+  station/    → ficha de gasolinera y reporte de precios
+  profile/    → perfil, niveles e insignias
+  missions/   → misiones semanales y ranking por zona
+components/   → componentes de interfaz reutilizables
+lib/          → utilidades y cliente de Supabase
+supabase/
+  migrations/ → esquema de la base de datos
+docs/         → mockups y documentación adicional
+```
+
+## Empezar en local
+
+```bash
+git clone <url-del-repo>
+cd surtify
+npm install
+cp .env.example .env.local   # rellena tus propias claves de Supabase y Mapbox
+npm run dev
+```
+
+## Datos y privacidad
+
+El código de este repositorio es público bajo licencia MIT. Los datos generados por la comunidad (precios, usuarios, fotos, comentarios) **no** se incluyen en el repositorio: viven en una instancia privada de Supabase y se gestionan mediante variables de entorno excluidas de `git` (ver `.env.example` y `.gitignore`).
+
+## Desplegar en Vercel
+
+1. Sube este repositorio a GitHub.
+2. En Vercel, "Add New Project" → importa el repositorio. Vercel detecta Next.js automáticamente, no hace falta configuración adicional de build.
+3. En **Project Settings → Environment Variables**, añade:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_MAPBOX_TOKEN`
+4. Despliega. El proyecto arranca correctamente aunque estas variables no estén configuradas todavía (las pantallas de registro y mapa mostrarán errores solo al intentar usarlas, no al cargar).
+5. Dominio propio: cuando compres `surtify.es`, añádelo en **Project Settings → Domains** y sigue las instrucciones de Vercel para apuntar el DNS.
+
+## Pendiente antes de producción
+
+- Sustituir el mapa de ejemplo en `/app/map` por la integración real con Mapbox (`docs/CURSOR-PROMPTS.md`, prompt 6).
+- Añadir los iconos reales de la PWA en `/public/icons/` (`icon-192.png` y `icon-512.png`; el `manifest.json` ya los referencia).
+- Ejecutar la migración `supabase/migrations/0001_init.sql` en el proyecto de Supabase (ver `docs/SUPABASE-GUIDE.md`).
+- Conectar los formularios de reporte de precio y confirmación con Supabase (por ahora son solo interfaz).
+
+## Contribuir
+
+Las pull requests son bienvenidas. Antes de proponer un cambio grande, abre un issue para comentarlo.
+
+## Licencia
+
+MIT — ver [`LICENSE`](./LICENSE).

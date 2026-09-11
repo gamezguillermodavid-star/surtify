@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --page-bg: #EEF0F3;
+  --bg: #FFFFFF;
+  --surface: #F3F4F6;
+  --surface-2: #E7E9EC;
+  --line: #DDE1E6;
+  --text: #1A1D22;
+  --muted: #667085;
+  --yellow: #E8A400;
+  --green: #1FAE6B;
+  --red: #E14F4F;
+  --violet: #6C4FE0;
+}
+
+.dark {
+  --page-bg: #05070A;
+  --bg: #10131A;
+  --surface: #1B212B;
+  --surface-2: #232B37;
+  --line: #2C3644;
+  --text: #F3F5F4;
+  --muted: #8B96A6;
+  --yellow: #F4C534;
+  --green: #3DDC84;
+  --red: #FF5D5D;
+  --violet: #8C6CFF;
+}
+
+body {
+  background: var(--page-bg);
+  color: var(--text);
+}
+
+.tap-target {
+  min-width: 44px;
+  min-height: 44px;
+}
