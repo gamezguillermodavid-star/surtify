@@ -1,47 +1,32 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 export default function AuthPage() {
-  const router = useRouter();
   const supabase = createClient();
 
-  const [step, setStep] = useState<'email' | 'otp'>('email');
+  const [step, setStep] = useState<'email' | 'sent'>('email');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function sendOtp(e: React.FormEvent) {
+  async function sendMagicLink(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      return;
-    }
-    setStep('otp');
-  }
-
-  async function verifyOtp(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      token: code,
-      type: 'email',
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     setLoading(false);
     if (error) {
       setError(error.message);
       return;
     }
-    router.push('/map');
+    setStep('sent');
   }
 
   return (
@@ -51,12 +36,12 @@ export default function AuthPage() {
       </div>
 
       {step === 'email' && (
-        <form onSubmit={sendOtp} className="flex flex-col gap-4">
+        <form onSubmit={sendMagicLink} className="flex flex-col gap-4">
           <h2 className="font-display text-xl uppercase tracking-wide">
             Regístrate con tu email
           </h2>
           <p className="text-sm text-muted">
-            Sin contraseña: te enviamos un código de un solo uso.
+            Sin contraseña: te enviamos un enlace de acceso.
           </p>
           <input
             type="email"
@@ -71,37 +56,21 @@ export default function AuthPage() {
             disabled={loading}
             className="tap-target rounded-xl bg-yellow px-6 py-4 font-display font-semibold uppercase tracking-wide text-[#141414] disabled:opacity-60"
           >
-            {loading ? 'Enviando…' : 'Enviar código'}
+            {loading ? 'Enviando…' : 'Enviar enlace'}
           </button>
         </form>
       )}
 
-      {step === 'otp' && (
-        <form onSubmit={verifyOtp} className="flex flex-col gap-4">
+      {step === 'sent' && (
+        <div className="flex flex-col gap-4">
           <h2 className="font-display text-xl uppercase tracking-wide">
-            Verifica tu correo
+            Revisa tu correo
           </h2>
           <p className="text-sm text-muted">
-            Te hemos enviado un código de seis dígitos a {email}
+            Te hemos enviado un enlace de acceso a {email}. Ábrelo desde este
+            mismo dispositivo para entrar.
           </p>
-          <input
-            type="text"
-            required
-            inputMode="numeric"
-            maxLength={6}
-            placeholder="123456"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="rounded-xl border border-yellow bg-surface px-4 py-3 text-center font-mono text-lg tracking-[0.5em] text-ink"
-          />
-          {error && <p className="text-sm text-red">{error}</p>}
-          <button
-            disabled={loading}
-            className="tap-target rounded-xl bg-yellow px-6 py-4 font-display font-semibold uppercase tracking-wide text-[#141414] disabled:opacity-60"
-          >
-            {loading ? 'Verificando…' : 'Confirmar código'}
-          </button>
-        </form>
+        </div>
       )}
     </main>
   );
