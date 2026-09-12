@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Surtify — precios de gasolineras en comunidad',
+  title: 'Surtify · precios de gasolineras en comunidad',
   description:
     'Encuentra y comparte precios reales de gasolineras, mantenidos por una comunidad en tiempo real.',
   manifest: '/manifest.json',

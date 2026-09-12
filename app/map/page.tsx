@@ -4,17 +4,50 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 
-const STATIONS = [
-  { id: '1', name: 'Estación Aurora', price: '1,579', level: 'cheap' as const, distance: '900 m' },
-  { id: '2', name: 'Repostaje Norte', price: '1,629', level: 'mid' as const, distance: '1,4 km' },
-  { id: '3', name: 'Vía Combustibles', price: '1,699', level: 'high' as const, distance: '2,1 km' },
-];
-
 const LEVEL_CLASS: Record<string, string> = {
   cheap: 'bg-green text-[#0d0d0d]',
   mid: 'bg-yellow text-[#0d0d0d]',
   high: 'bg-red text-white',
 };
+
+type PriceLevel = 'cheap' | 'mid' | 'high';
+
+function formatPrice(price: number): string {
+  return price.toLocaleString('es-ES', {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  });
+}
+
+function assignPriceLevels(
+  stationsWithPrice: { id: string; price: number }[]
+): Map<string, PriceLevel> {
+  const levels = new Map<string, PriceLevel>();
+
+  if (stationsWithPrice.length === 0) {
+    return levels;
+  }
+
+  if (stationsWithPrice.length === 1) {
+    levels.set(stationsWithPrice[0].id, 'cheap');
+    return levels;
+  }
+
+  const min = Math.min(...stationsWithPrice.map((s) => s.price));
+  const max = Math.max(...stationsWithPrice.map((s) => s.price));
+
+  for (const station of stationsWithPrice) {
+    if (station.price === min) {
+      levels.set(station.id, 'cheap');
+    } else if (station.price === max) {
+      levels.set(station.id, 'high');
+    } else {
+      levels.set(station.id, 'mid');
+    }
+  }
+
+  return levels;
+}
 
 export default async function MapPage() {
   const supabase = createClient();
@@ -26,7 +59,44 @@ export default async function MapPage() {
     redirect('/auth');
   }
 
-  const cheapest = STATIONS[0];
+  const { data: stations } = await supabase
+    .from('gas_stations')
+    .select('id, name, address')
+    .order('name');
+
+  const { data: dieselPrices } = await supabase
+    .from('fuel_prices')
+    .select('station_id, price')
+    .eq('fuel_type', 'diesel')
+    .order('reported_at', { ascending: false });
+
+  const latestDieselByStation = new Map<string, number>();
+  for (const row of dieselPrices ?? []) {
+    if (!latestDieselByStation.has(row.station_id)) {
+      latestDieselByStation.set(row.station_id, Number(row.price));
+    }
+  }
+
+  const stationsWithPrice = (stations ?? [])
+    .filter((station) => latestDieselByStation.has(station.id))
+    .map((station) => ({
+      id: station.id,
+      price: latestDieselByStation.get(station.id)!,
+    }));
+
+  const priceLevels = assignPriceLevels(stationsWithPrice);
+
+  const cheapest =
+    stationsWithPrice.length > 0
+      ? stationsWithPrice.reduce((best, current) =>
+          current.price < best.price ? current : best
+        )
+      : null;
+
+  const cheapestStation =
+    cheapest && stations
+      ? stations.find((station) => station.id === cheapest.id)
+      : null;
 
   return (
     <main className="min-h-screen pb-24">
@@ -43,29 +113,46 @@ export default async function MapPage() {
       </p>
 
       <div className="mx-4 mt-4 space-y-2">
-        {STATIONS.map((s) => (
-          <Link
-            key={s.id}
-            href={`/station/${s.id}`}
-            className="flex items-center justify-between rounded-2xl border border-line bg-surface px-4 py-3"
-          >
-            <div>
-              <div className="font-display text-sm uppercase">{s.name}</div>
-              <div className="text-xs text-muted">A {s.distance} · Diésel</div>
-            </div>
-            <span
-              className={`rounded-lg px-3 py-1 font-mono text-sm font-bold ${LEVEL_CLASS[s.level]}`}
+        {(stations ?? []).map((station) => {
+          const price = latestDieselByStation.get(station.id);
+          const level = priceLevels.get(station.id);
+
+          return (
+            <Link
+              key={station.id}
+              href={`/station/${station.id}`}
+              className="flex items-center justify-between rounded-2xl border border-line bg-surface px-4 py-3"
             >
-              {s.price} €
-            </span>
-          </Link>
-        ))}
+              <div>
+                <div className="font-display text-sm uppercase">
+                  {station.name}
+                </div>
+                <div className="text-xs text-muted">
+                  {station.address ? `${station.address} · ` : ''}Diésel
+                </div>
+              </div>
+              {price != null && level ? (
+                <span
+                  className={`rounded-lg px-3 py-1 font-mono text-sm font-bold ${LEVEL_CLASS[level]}`}
+                >
+                  {formatPrice(price)} €
+                </span>
+              ) : (
+                <span className="rounded-lg border border-line px-3 py-1 text-xs text-muted">
+                  Sin precio reportado
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </div>
 
-      <div className="mx-4 mt-6 rounded-2xl border border-line bg-surface2 px-4 py-3 text-sm">
-        La más barata cerca de ti: <b>{cheapest.name}</b> a {cheapest.distance}
-        , {cheapest.price} €.
-      </div>
+      {cheapestStation && cheapest && (
+        <div className="mx-4 mt-6 rounded-2xl border border-line bg-surface2 px-4 py-3 text-sm">
+          La más barata cerca de ti: <b>{cheapestStation.name}</b>,{' '}
+          {formatPrice(cheapest.price)} €.
+        </div>
+      )}
 
       <BottomNav />
     </main>
