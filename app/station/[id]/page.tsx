@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
+import { buildGoogleMapsUrl, buildWazeUrl } from '@/lib/directions';
 
 const FUEL_TYPES = [
   { key: 'diesel', label: 'Diésel' },
@@ -25,7 +26,7 @@ export default async function StationPage({
 
   const { data: station, error: stationError } = await supabase
     .from('gas_stations')
-    .select('id, name, address, services')
+    .select('id, name, address, services, latitude, longitude')
     .eq('id', params.id)
     .single();
 
@@ -106,6 +107,25 @@ export default async function StationPage({
           <p>Error cargando precios: {pricesError.message}</p>
         </div>
       )}
+
+      <div className="mx-4 mt-4 grid grid-cols-2 gap-2">
+        <a
+          href={buildWazeUrl(station.latitude, station.longitude)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="tap-target flex items-center justify-center gap-1.5 rounded-xl border border-line bg-surface py-3 text-sm font-semibold uppercase text-ink"
+        >
+          🧭 Waze
+        </a>
+        <a
+          href={buildGoogleMapsUrl(station.latitude, station.longitude)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="tap-target flex items-center justify-center gap-1.5 rounded-xl border border-line bg-surface py-3 text-sm font-semibold uppercase text-ink"
+        >
+          🗺️ Maps
+        </a>
+      </div>
 
       <div className="flex gap-2 overflow-x-auto px-4 py-4">
         {fuels.map((fuel) => {

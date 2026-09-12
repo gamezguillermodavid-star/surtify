@@ -1,16 +1,8 @@
-import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
 import ThemeToggle from '@/components/ThemeToggle';
+import StationsMap, { type MapStation, type PriceLevel } from '@/components/StationsMap';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-
-const LEVEL_CLASS: Record<string, string> = {
-  cheap: 'bg-green text-[#0d0d0d]',
-  mid: 'bg-yellow text-[#0d0d0d]',
-  high: 'bg-red text-white',
-};
-
-type PriceLevel = 'cheap' | 'mid' | 'high';
 
 function formatPrice(price: number): string {
   return price.toLocaleString('es-ES', {
@@ -61,7 +53,7 @@ export default async function MapPage() {
 
   const { data: stations, error: stationsError } = await supabase
     .from('gas_stations')
-    .select('id, name, address')
+    .select('id, name, address, latitude, longitude')
     .order('name');
 
   const { data: dieselPrices, error: pricesError } = await supabase
@@ -98,6 +90,16 @@ export default async function MapPage() {
       ? stations.find((station) => station.id === cheapest.id)
       : null;
 
+  const mapStations: MapStation[] = (stations ?? []).map((station) => ({
+    id: station.id,
+    name: station.name,
+    address: station.address,
+    latitude: station.latitude,
+    longitude: station.longitude,
+    price: latestDieselByStation.get(station.id) ?? null,
+    level: priceLevels.get(station.id) ?? null,
+  }));
+
   return (
     <main className="min-h-screen pb-24">
       <div className="flex items-center justify-between px-4 pt-4">
@@ -107,59 +109,21 @@ export default async function MapPage() {
         <ThemeToggle />
       </div>
 
-      <p className="px-4 pt-4 text-sm text-muted">
-        Mapa de ejemplo — se sustituirá por Mapbox con la ubicación real y los
-        marcadores de gasolineras cercanas.
-      </p>
-
       {(stationsError || pricesError) && (
         <div className="mx-4 mt-4 space-y-1 text-sm text-red">
           {stationsError && (
             <p>Error cargando gasolineras: {stationsError.message}</p>
           )}
           {pricesError && (
-            <p>Error cargando gasolineras: {pricesError.message}</p>
+            <p>Error cargando precios: {pricesError.message}</p>
           )}
         </div>
       )}
 
-      <div className="mx-4 mt-4 space-y-2">
-        {(stations ?? []).map((station) => {
-          const price = latestDieselByStation.get(station.id);
-          const level = priceLevels.get(station.id);
-
-          return (
-            <Link
-              key={station.id}
-              href={`/station/${station.id}`}
-              className="flex items-center justify-between rounded-2xl border border-line bg-surface px-4 py-3"
-            >
-              <div>
-                <div className="font-display text-sm uppercase">
-                  {station.name}
-                </div>
-                <div className="text-xs text-muted">
-                  {station.address ? `${station.address} · ` : ''}Diésel
-                </div>
-              </div>
-              {price != null && level ? (
-                <span
-                  className={`rounded-lg px-3 py-1 font-mono text-sm font-bold ${LEVEL_CLASS[level]}`}
-                >
-                  {formatPrice(price)} €
-                </span>
-              ) : (
-                <span className="rounded-lg border border-line px-3 py-1 text-xs text-muted">
-                  Sin precio reportado
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </div>
+      <StationsMap stations={mapStations} />
 
       {cheapestStation && cheapest && (
-        <div className="mx-4 mt-6 rounded-2xl border border-line bg-surface2 px-4 py-3 text-sm">
+        <div className="mx-4 mt-4 rounded-2xl border border-line bg-surface2 px-4 py-3 text-sm">
           La más barata cerca de ti: <b>{cheapestStation.name}</b>,{' '}
           {formatPrice(cheapest.price)} €.
         </div>
