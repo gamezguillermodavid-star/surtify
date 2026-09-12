@@ -101,14 +101,9 @@ export default async function StationPage({
         </div>
       </div>
 
-      {(stationError || pricesError) && (
+      {pricesError && (
         <div className="mx-4 mt-4 space-y-1 text-sm text-red">
-          {stationError && (
-            <p>Error cargando gasolineras: {stationError.message}</p>
-          )}
-          {pricesError && (
-            <p>Error cargando gasolineras: {pricesError.message}</p>
-          )}
+          <p>Error cargando precios: {pricesError.message}</p>
         </div>
       )}
 
