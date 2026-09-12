@@ -59,12 +59,12 @@ export default async function MapPage() {
     redirect('/auth');
   }
 
-  const { data: stations } = await supabase
+  const { data: stations, error: stationsError } = await supabase
     .from('gas_stations')
     .select('id, name, address')
     .order('name');
 
-  const { data: dieselPrices } = await supabase
+  const { data: dieselPrices, error: pricesError } = await supabase
     .from('fuel_prices')
     .select('station_id, price')
     .eq('fuel_type', 'diesel')
@@ -111,6 +111,17 @@ export default async function MapPage() {
         Mapa de ejemplo — se sustituirá por Mapbox con la ubicación real y los
         marcadores de gasolineras cercanas.
       </p>
+
+      {(stationsError || pricesError) && (
+        <div className="mx-4 mt-4 space-y-1 text-sm text-red">
+          {stationsError && (
+            <p>Error cargando gasolineras: {stationsError.message}</p>
+          )}
+          {pricesError && (
+            <p>Error cargando gasolineras: {pricesError.message}</p>
+          )}
+        </div>
+      )}
 
       <div className="mx-4 mt-4 space-y-2">
         {(stations ?? []).map((station) => {

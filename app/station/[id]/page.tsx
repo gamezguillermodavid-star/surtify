@@ -23,21 +23,34 @@ export default async function StationPage({
 }) {
   const supabase = createClient();
 
-  const { data: station } = await supabase
+  const { data: station, error: stationError } = await supabase
     .from('gas_stations')
     .select('id, name, address, services')
     .eq('id', params.id)
     .single();
 
-  if (!station) {
-    notFound();
-  }
-
-  const { data: fuelPrices } = await supabase
+  const { data: fuelPrices, error: pricesError } = await supabase
     .from('fuel_prices')
     .select('fuel_type, price, reported_at')
     .eq('station_id', params.id)
     .order('reported_at', { ascending: false });
+
+  if (stationError && !station) {
+    return (
+      <main className="min-h-screen px-4 py-6">
+        <Link href="/map" className="text-sm text-muted">
+          ‹ Volver
+        </Link>
+        <p className="mt-4 text-sm text-red">
+          Error cargando gasolineras: {stationError.message}
+        </p>
+      </main>
+    );
+  }
+
+  if (!station) {
+    notFound();
+  }
 
   const latestByFuelType = new Map<
     string,
@@ -87,6 +100,17 @@ export default async function StationPage({
           </div>
         </div>
       </div>
+
+      {(stationError || pricesError) && (
+        <div className="mx-4 mt-4 space-y-1 text-sm text-red">
+          {stationError && (
+            <p>Error cargando gasolineras: {stationError.message}</p>
+          )}
+          {pricesError && (
+            <p>Error cargando gasolineras: {pricesError.message}</p>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-2 overflow-x-auto px-4 py-4">
         {fuels.map((fuel) => {
