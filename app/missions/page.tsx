@@ -1,4 +1,6 @@
 import BottomNav from '@/components/BottomNav';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 
 const MISSIONS = [
   { period: 'Semanal', title: 'Reporta 3 gasolineras distintas', xp: 40, progress: 66 },
@@ -19,7 +21,16 @@ const RANKING = [
   { pos: 4, name: 'Lucía_M', xp: '1.980 XP' },
 ];
 
-export default function MissionsPage() {
+export default async function MissionsPage() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/auth');
+  }
+
   return (
     <main className="min-h-screen pb-24">
       <div className="flex items-center justify-between px-4 pt-4">

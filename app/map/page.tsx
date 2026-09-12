@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
 import ThemeToggle from '@/components/ThemeToggle';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 
 const STATIONS = [
   { id: '1', name: 'Estación Aurora', price: '1,579', level: 'cheap' as const, distance: '900 m' },
@@ -14,7 +16,16 @@ const LEVEL_CLASS: Record<string, string> = {
   high: 'bg-red text-white',
 };
 
-export default function MapPage() {
+export default async function MapPage() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/auth');
+  }
+
   const cheapest = STATIONS[0];
 
   return (
