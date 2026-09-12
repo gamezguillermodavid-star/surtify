@@ -69,7 +69,7 @@ export default async function StationPage({
   const lowestPrice =
     pricesWithData.length > 0 ? Math.min(...pricesWithData) : null;
 
-  const services = station.services ?? [];
+  const services: string[] = (station.services ?? []) as string[];
 
   return (
     <main className="min-h-screen pb-10">
