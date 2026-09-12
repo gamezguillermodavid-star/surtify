@@ -4,13 +4,6 @@ import StationsMap, { type MapStation, type PriceLevel } from '@/components/Stat
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 
-function formatPrice(price: number): string {
-  return price.toLocaleString('es-ES', {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
-  });
-}
-
 function assignPriceLevels(
   stationsWithPrice: { id: string; price: number }[]
 ): Map<string, PriceLevel> {
@@ -78,18 +71,6 @@ export default async function MapPage() {
 
   const priceLevels = assignPriceLevels(stationsWithPrice);
 
-  const cheapest =
-    stationsWithPrice.length > 0
-      ? stationsWithPrice.reduce((best, current) =>
-          current.price < best.price ? current : best
-        )
-      : null;
-
-  const cheapestStation =
-    cheapest && stations
-      ? stations.find((station) => station.id === cheapest.id)
-      : null;
-
   const mapStations: MapStation[] = (stations ?? []).map((station) => ({
     id: station.id,
     name: station.name,
@@ -121,13 +102,6 @@ export default async function MapPage() {
       )}
 
       <StationsMap stations={mapStations} />
-
-      {cheapestStation && cheapest && (
-        <div className="mx-4 mt-4 rounded-2xl border border-line bg-surface2 px-4 py-3 text-sm">
-          La más barata cerca de ti: <b>{cheapestStation.name}</b>,{' '}
-          {formatPrice(cheapest.price)} €.
-        </div>
-      )}
 
       <BottomNav />
     </main>

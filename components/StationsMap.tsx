@@ -1,15 +1,21 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Map, {
+import MapGL, {
   GeolocateControl,
-  Marker,
+  Layer,
   NavigationControl,
   Popup,
+  Source,
 } from 'react-map-gl/mapbox';
+import type { LayerProps, MapMouseEvent, MapRef } from 'react-map-gl/mapbox';
+import type { GeoJSONSource } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { buildGoogleMapsUrl, buildWazeUrl } from '@/lib/directions';
+import { formatDistanceKm, haversineDistanceKm } from '@/lib/geo';
+
+const NEARBY_RADIUS_KM = 10;
 
 export type PriceLevel = 'cheap' | 'mid' | 'high';
 
@@ -36,28 +42,180 @@ function formatPrice(price: number): string {
   });
 }
 
+const CLUSTER_LAYER: LayerProps = {
+  id: 'clusters',
+  type: 'circle',
+  source: 'stations',
+  filter: ['has', 'point_count'],
+  paint: {
+    'circle-color': ['step', ['get', 'point_count'], '#8aa0ff', 25, '#5c7cfa', 100, '#3b5bdb'],
+    'circle-radius': ['step', ['get', 'point_count'], 16, 25, 20, 100, 26],
+    'circle-stroke-width': 2,
+    'circle-stroke-color': '#ffffff',
+  },
+};
+
+const CLUSTER_COUNT_LAYER: LayerProps = {
+  id: 'cluster-count',
+  type: 'symbol',
+  source: 'stations',
+  filter: ['has', 'point_count'],
+  layout: {
+    'text-field': ['get', 'point_count_abbreviated'],
+    'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+    'text-size': 12,
+  },
+  paint: {
+    'text-color': '#ffffff',
+  },
+};
+
+const UNCLUSTERED_POINT_LAYER: LayerProps = {
+  id: 'unclustered-point',
+  type: 'circle',
+  source: 'stations',
+  filter: ['!', ['has', 'point_count']],
+  paint: {
+    'circle-color': [
+      'match',
+      ['get', 'level'],
+      'cheap',
+      LEVEL_COLOR.cheap,
+      'mid',
+      LEVEL_COLOR.mid,
+      'high',
+      LEVEL_COLOR.high,
+      '#9ca3af',
+    ],
+    'circle-radius': 9,
+    'circle-stroke-width': 2,
+    'circle-stroke-color': '#ffffff',
+  },
+};
+
 export default function StationsMap({ stations }: { stations: MapStation[] }) {
   const router = useRouter();
+  const mapRef = useRef<MapRef>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [userPosition, setUserPosition] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [locationDenied, setLocationDenied] = useState(false);
 
-  const selectedStation = useMemo(
-    () => stations.find((station) => station.id === selectedId) ?? null,
-    [stations, selectedId]
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserPosition({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      () => {
+        setLocationDenied(true);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+
+  const stationsById = useMemo(() => {
+    const map = new Map<string, MapStation>();
+    for (const station of stations) map.set(station.id, station);
+    return map;
+  }, [stations]);
+
+  const selectedStation = selectedId ? stationsById.get(selectedId) ?? null : null;
+
+  const geojson = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: stations.map((station) => ({
+        type: 'Feature' as const,
+        properties: {
+          id: station.id,
+          level: station.level ?? 'unknown',
+        },
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [station.longitude, station.latitude],
+        },
+      })),
+    }),
+    [stations]
   );
 
   const initialViewState = useMemo(() => {
     if (stations.length === 0) {
-      return { latitude: 41.3598, longitude: 2.0997, zoom: 13 };
+      return { latitude: 41.3598, longitude: 2.0997, zoom: 11 };
     }
-    const avgLat =
-      stations.reduce((sum, s) => sum + s.latitude, 0) / stations.length;
-    const avgLng =
-      stations.reduce((sum, s) => sum + s.longitude, 0) / stations.length;
-    return { latitude: avgLat, longitude: avgLng, zoom: 13 };
+    const avgLat = stations.reduce((sum, s) => sum + s.latitude, 0) / stations.length;
+    const avgLng = stations.reduce((sum, s) => sum + s.longitude, 0) / stations.length;
+    return { latitude: avgLat, longitude: avgLng, zoom: 11 };
   }, [stations]);
 
-  const handleMarkerClick = useCallback((id: string) => {
-    setSelectedId((current) => (current === id ? null : id));
+  const nearestCheapest = useMemo(() => {
+    if (!userPosition) return null;
+
+    const withPrice = stations.filter(
+      (station): station is MapStation & { price: number } => station.price != null
+    );
+    if (withPrice.length === 0) return null;
+
+    const withDistance = withPrice.map((station) => ({
+      station,
+      distanceKm: haversineDistanceKm(
+        userPosition.latitude,
+        userPosition.longitude,
+        station.latitude,
+        station.longitude
+      ),
+    }));
+
+    let candidates = withDistance.filter((entry) => entry.distanceKm <= NEARBY_RADIUS_KM);
+    if (candidates.length === 0) {
+      candidates = [...withDistance].sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 5);
+    }
+
+    return candidates.reduce((best, current) =>
+      current.station.price < best.station.price ? current : best
+    );
+  }, [stations, userPosition]);
+
+  const flyToStation = useCallback((station: MapStation) => {
+    setSelectedId(station.id);
+    mapRef.current?.easeTo({
+      center: [station.longitude, station.latitude],
+      zoom: 15,
+      duration: 800,
+    });
+  }, []);
+
+  const handleMapClick = useCallback((event: MapMouseEvent) => {
+    const feature = event.features?.[0];
+    if (!feature) {
+      setSelectedId(null);
+      return;
+    }
+
+    if (feature.layer?.id === 'clusters') {
+      const clusterId = feature.properties?.cluster_id as number | undefined;
+      const map = mapRef.current?.getMap();
+      const source = map?.getSource('stations') as GeoJSONSource | undefined;
+      if (source && clusterId != null && feature.geometry.type === 'Point') {
+        const [lng, lat] = feature.geometry.coordinates;
+        source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+          if (err || zoom == null) return;
+          mapRef.current?.easeTo({ center: [lng, lat], zoom });
+        });
+      }
+      return;
+    }
+
+    if (feature.layer?.id === 'unclustered-point') {
+      const id = feature.properties?.id as string | undefined;
+      setSelectedId(id ?? null);
+    }
   }, []);
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -71,12 +229,16 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
   }
 
   return (
+    <>
     <div className="relative mx-4 mt-4 h-[360px] overflow-hidden rounded-2xl border border-line">
-      <Map
+      <MapGL
+        ref={mapRef}
         mapboxAccessToken={token}
         initialViewState={initialViewState}
         mapStyle="mapbox://styles/mapbox/streets-v12"
         style={{ width: '100%', height: '100%' }}
+        interactiveLayerIds={['clusters', 'unclustered-point']}
+        onClick={handleMapClick}
       >
         <NavigationControl position="top-right" showCompass={false} />
         <GeolocateControl
@@ -85,29 +247,11 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
           positionOptions={{ enableHighAccuracy: true }}
         />
 
-        {stations.map((station) => (
-          <Marker
-            key={station.id}
-            longitude={station.longitude}
-            latitude={station.latitude}
-            anchor="bottom"
-            onClick={(event) => {
-              event.originalEvent.stopPropagation();
-              handleMarkerClick(station.id);
-            }}
-          >
-            <div
-              className="tap-target flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-lg shadow-md"
-              style={{
-                backgroundColor: station.level
-                  ? LEVEL_COLOR[station.level]
-                  : '#9ca3af',
-              }}
-            >
-              ⛽
-            </div>
-          </Marker>
-        ))}
+        <Source id="stations" type="geojson" data={geojson} cluster clusterMaxZoom={14} clusterRadius={50}>
+          <Layer {...CLUSTER_LAYER} />
+          <Layer {...CLUSTER_COUNT_LAYER} />
+          <Layer {...UNCLUSTERED_POINT_LAYER} />
+        </Source>
 
         {selectedStation && (
           <Popup
@@ -118,9 +262,7 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
             closeOnClick={false}
           >
             <div className="min-w-[160px] text-xs text-[#141414]">
-              <div className="font-display text-sm uppercase">
-                {selectedStation.name}
-              </div>
+              <div className="font-display text-sm uppercase">{selectedStation.name}</div>
               {selectedStation.address && (
                 <div className="mt-0.5 text-muted">{selectedStation.address}</div>
               )}
@@ -157,7 +299,26 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
             </div>
           </Popup>
         )}
-      </Map>
+      </MapGL>
     </div>
+
+    {nearestCheapest && (
+      <button
+        type="button"
+        onClick={() => flyToStation(nearestCheapest.station)}
+        className="mx-4 mt-4 block w-full rounded-2xl border border-line bg-surface2 px-4 py-3 text-left text-sm"
+      >
+        La más barata cerca de ti: <b>{nearestCheapest.station.name}</b>,{' '}
+        {formatPrice(nearestCheapest.station.price)} € · a{' '}
+        {formatDistanceKm(nearestCheapest.distanceKm)}
+      </button>
+    )}
+
+    {!userPosition && !nearestCheapest && locationDenied && (
+      <div className="mx-4 mt-4 rounded-2xl border border-line bg-surface2 px-4 py-3 text-sm text-muted">
+        Activa la ubicación en el navegador para ver la gasolinera más barata cerca de ti.
+      </div>
+    )}
+    </>
   );
 }
