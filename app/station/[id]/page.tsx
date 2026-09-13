@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import { buildGoogleMapsUrl, buildWazeUrl } from '@/lib/directions';
+import PriceConfirmButtons from './PriceConfirmButtons';
 
 const FUEL_TYPES = [
   { key: 'diesel', label: 'Diésel' },
@@ -32,7 +33,7 @@ export default async function StationPage({
 
   const { data: fuelPrices, error: pricesError } = await supabase
     .from('fuel_prices')
-    .select('fuel_type, price, reported_at')
+    .select('id, fuel_type, price, reported_at')
     .eq('station_id', params.id)
     .order('reported_at', { ascending: false });
 
@@ -84,6 +85,8 @@ export default async function StationPage({
     pricesWithData.length > 0 ? Math.min(...pricesWithData) : null;
 
   const services: string[] = (station.services ?? []) as string[];
+
+  const latestReport = fuelPrices && fuelPrices.length > 0 ? fuelPrices[0] : null;
 
   return (
     <main className="min-h-screen pb-10">
@@ -154,21 +157,16 @@ export default async function StationPage({
         })}
       </div>
 
-      <div className="mx-4 flex items-center justify-between rounded-2xl bg-surface2 px-4 py-3">
-        <p className="text-xs text-muted">
-          Precio reportado hace 12 minutos.
-          <br />
-          ¿Sigue siendo correcto?
-        </p>
-        <div className="flex gap-2">
-          <button className="tap-target rounded-xl border border-line bg-surface text-lg">
-            👍
-          </button>
-          <button className="tap-target rounded-xl border border-line bg-surface text-lg">
-            👎
-          </button>
+      {latestReport && (
+        <div className="mx-4 flex items-center justify-between rounded-2xl bg-surface2 px-4 py-3">
+          <p className="text-xs text-muted">
+            Último precio reportado.
+            <br />
+            ¿Sigue siendo correcto?
+          </p>
+          <PriceConfirmButtons fuelPriceId={latestReport.id} />
         </div>
-      </div>
+      )}
 
       {services.length > 0 && (
         <div className="mx-4 mt-4 flex flex-wrap gap-2">

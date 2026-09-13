@@ -31,6 +31,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# notas internas de desarrollo (repo publico, esto no debe verse)
+CLAUDE.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
