@@ -27,11 +27,18 @@ export default function ReportPricePage({
   const [authChecking, setAuthChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [station, setStation] = useState<{
+    name: string;
+    address: string | null;
+  } | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [photoFileName, setPhotoFileName] = useState<string | null>(null);
+  const [readyToContinue, setReadyToContinue] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function checkAuth() {
+    async function checkAuthAndLoadStation() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -43,15 +50,45 @@ export default function ReportPricePage({
         return;
       }
 
+      const { data: stationData } = await supabase
+        .from('gas_stations')
+        .select('name, address')
+        .eq('id', params.id)
+        .single();
+
+      if (cancelled) return;
+
+      if (stationData) {
+        setStation({ name: stationData.name, address: stationData.address });
+      }
+
       setAuthChecking(false);
     }
 
-    checkAuth();
+    checkAuthAndLoadStation();
 
     return () => {
       cancelled = true;
     };
-  }, [router, supabase.auth]);
+  }, [params.id, router, supabase]);
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    setPhotoPreviewUrl((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return file ? URL.createObjectURL(file) : null;
+    });
+    setPhotoFileName(file?.name ?? null);
+  }
+
+  function clearPhoto() {
+    if (photoInputRef.current) photoInputRef.current.value = '';
+    setPhotoPreviewUrl((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return null;
+    });
+    setPhotoFileName(null);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,9 +110,6 @@ export default function ReportPricePage({
     }
 
     const photoFile = photoInputRef.current?.files?.[0];
-    const hasPhoto = Boolean(photoFile);
-    const xpAwarded = hasPhoto ? 3 : 1;
-    const eventType = hasPhoto ? 'report_price_with_photo' : 'report_price';
 
     setLoading(true);
 
@@ -92,6 +126,8 @@ export default function ReportPricePage({
       return;
     }
 
+    let photoUploaded = false;
+
     if (photoFile) {
       const storagePath = `${params.id}/${user.id}-${Date.now()}.jpg`;
 
@@ -99,22 +135,37 @@ export default function ReportPricePage({
         .from('station-photos')
         .upload(storagePath, photoFile, { contentType: photoFile.type });
 
-      if (!uploadError) {
-        const { error: photoRowError } = await supabase
-          .from('station_photos')
-          .insert({
-            station_id: params.id,
-            user_id: user.id,
-            storage_path: storagePath,
-          });
-
-        if (photoRowError) {
-          console.warn('No se pudo registrar la foto:', photoRowError.message);
-        }
-      } else {
-        console.warn('No se pudo subir la foto:', uploadError.message);
+      if (uploadError) {
+        setLoading(false);
+        setReadyToContinue(true);
+        setError(
+          `El precio se ha guardado, pero no se pudo subir la foto: ${uploadError.message}`
+        );
+        return;
       }
+
+      const { error: photoRowError } = await supabase
+        .from('station_photos')
+        .insert({
+          station_id: params.id,
+          user_id: user.id,
+          storage_path: storagePath,
+        });
+
+      if (photoRowError) {
+        setLoading(false);
+        setReadyToContinue(true);
+        setError(
+          `El precio se ha guardado, pero no se pudo registrar la foto: ${photoRowError.message}`
+        );
+        return;
+      }
+
+      photoUploaded = true;
     }
+
+    const xpAwarded = photoUploaded ? 3 : 1;
+    const eventType = photoUploaded ? 'report_price_with_photo' : 'report_price';
 
     const { error: xpError } = await supabase.from('xp_events').insert({
       user_id: user.id,
@@ -172,7 +223,8 @@ export default function ReportPricePage({
         Reportar precio
       </h2>
       <p className="mb-5 text-xs text-muted">
-        Estación Aurora · Calle Mayor 14
+        {station?.name ?? 'Gasolinera'}
+        {station?.address ? ` · ${station.address}` : ''}
       </p>
 
       <form onSubmit={submit} className="flex flex-col gap-5">
@@ -206,16 +258,41 @@ export default function ReportPricePage({
           <span className="text-sm text-muted">€ / litro</span>
         </div>
 
-        <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-line px-4 py-6 text-center text-xs text-muted">
-          <span className="mb-1 text-xl text-yellow">＋</span>
-          Añade una foto del cartel de precios
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-          />
-        </label>
+        {photoPreviewUrl ? (
+          <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photoPreviewUrl}
+              alt="Vista previa del cartel de precios"
+              className="h-14 w-14 rounded-xl object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs font-semibold text-ink">
+                {photoFileName}
+              </div>
+              <div className="text-[11px] text-green">Foto lista para enviar</div>
+            </div>
+            <button
+              type="button"
+              onClick={clearPhoto}
+              className="tap-target rounded-lg border border-line px-2 py-1 text-[11px] uppercase text-muted"
+            >
+              Quitar
+            </button>
+          </div>
+        ) : (
+          <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-line px-4 py-6 text-center text-xs text-muted">
+            <span className="mb-1 text-xl text-yellow">＋</span>
+            Añade una foto del cartel de precios
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoChange}
+              className="hidden"
+            />
+          </label>
+        )}
 
         <div className="rounded-xl border border-green/30 bg-green/10 px-4 py-3 text-xs text-green">
           ⚡ Ganas 3 puntos por reportar con foto
@@ -223,13 +300,23 @@ export default function ReportPricePage({
 
         {error && <p className="text-sm text-red">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="tap-target rounded-xl bg-yellow py-4 font-display font-semibold uppercase tracking-wide text-[#141414] disabled:opacity-60"
-        >
-          {loading ? 'Enviando…' : 'Confirmar precio'}
-        </button>
+        {readyToContinue ? (
+          <button
+            type="button"
+            onClick={() => router.push(`/station/${params.id}`)}
+            className="tap-target rounded-xl bg-yellow py-4 font-display font-semibold uppercase tracking-wide text-[#141414]"
+          >
+            Continuar a la ficha
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={loading}
+            className="tap-target rounded-xl bg-yellow py-4 font-display font-semibold uppercase tracking-wide text-[#141414] disabled:opacity-60"
+          >
+            {loading ? 'Enviando…' : 'Confirmar precio'}
+          </button>
+        )}
       </form>
     </main>
   );
