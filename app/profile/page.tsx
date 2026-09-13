@@ -9,7 +9,7 @@ const BADGES = ['📸', '🎯', '🔥', '🗺️', '🏆', '⚡', '👑', '🛰�
 // TODO: aún no hay criterio de desbloqueo real para las insignias.
 const UNLOCKED = 0;
 
-const RING_ARC_LENGTH = 230;
+const RING_ARC_LENGTH = 90 * Math.PI;
 
 export default async function ProfilePage() {
   const supabase = createClient();

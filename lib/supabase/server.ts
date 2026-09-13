@@ -19,7 +19,7 @@ export function createClient() {
             cookieStore.set({ name, value, ...options });
           } catch {
             // se llama desde un Server Component sin permiso de escritura;
-            // se ignora porque el middleware ya refresca la sesión
+            // el middleware ya refresca la sesión en cada petición
           }
         },
         remove(name: string, options: CookieOptions) {

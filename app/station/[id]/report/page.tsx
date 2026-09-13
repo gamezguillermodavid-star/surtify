@@ -24,10 +24,10 @@ export default function ReportPricePage({
 
   const [fuel, setFuel] = useState<(typeof FUEL_OPTIONS)[number]>(FUEL_OPTIONS[0]);
   const [prices, setPrices] = useState<Record<(typeof FUEL_OPTIONS)[number], string>>({
-    Diésel: '1.58',
-    'Gasolina 95': '1.58',
-    'Gasolina 98': '1.58',
-    GLP: '1.58',
+    Diésel: '',
+    'Gasolina 95': '',
+    'Gasolina 98': '',
+    GLP: '',
   });
   const [authChecking, setAuthChecking] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -256,11 +256,12 @@ export default function ReportPricePage({
             step="0.001"
             min="0"
             required
+            placeholder="1.XX"
             value={prices[fuel]}
             onChange={(e) =>
               setPrices((previous) => ({ ...previous, [fuel]: e.target.value }))
             }
-            className="w-28 bg-transparent text-center font-mono text-3xl font-bold text-ink outline-none"
+            className="w-28 bg-transparent text-center font-mono text-3xl font-bold text-ink outline-none placeholder:text-muted"
           />
           <span className="text-sm text-muted">€ / litro</span>
         </div>
