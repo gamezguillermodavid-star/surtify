@@ -46,7 +46,7 @@ export default async function MapPage() {
 
   const { data: stations, error: stationsError } = await supabase
     .from('gas_stations')
-    .select('id, name, address, latitude, longitude')
+    .select('id, name, brand, address, latitude, longitude')
     .order('name');
 
   const { data: dieselPrices, error: pricesError } = await supabase
@@ -55,10 +55,23 @@ export default async function MapPage() {
     .eq('fuel_type', 'diesel')
     .order('reported_at', { ascending: false });
 
+  const { data: gasolina95Prices, error: gasolina95Error } = await supabase
+    .from('fuel_prices')
+    .select('station_id, price')
+    .eq('fuel_type', 'gasolina_95')
+    .order('reported_at', { ascending: false });
+
   const latestDieselByStation = new Map<string, number>();
   for (const row of dieselPrices ?? []) {
     if (!latestDieselByStation.has(row.station_id)) {
       latestDieselByStation.set(row.station_id, Number(row.price));
+    }
+  }
+
+  const latestGasolina95ByStation = new Map<string, number>();
+  for (const row of gasolina95Prices ?? []) {
+    if (!latestGasolina95ByStation.has(row.station_id)) {
+      latestGasolina95ByStation.set(row.station_id, Number(row.price));
     }
   }
 
@@ -74,10 +87,12 @@ export default async function MapPage() {
   const mapStations: MapStation[] = (stations ?? []).map((station) => ({
     id: station.id,
     name: station.name,
+    brand: station.brand,
     address: station.address,
     latitude: station.latitude,
     longitude: station.longitude,
     price: latestDieselByStation.get(station.id) ?? null,
+    price95: latestGasolina95ByStation.get(station.id) ?? null,
     level: priceLevels.get(station.id) ?? null,
   }));
 
@@ -90,13 +105,13 @@ export default async function MapPage() {
         <ThemeToggle />
       </div>
 
-      {(stationsError || pricesError) && (
+      {(stationsError || pricesError || gasolina95Error) && (
         <div className="mx-4 mt-4 space-y-1 text-sm text-red">
           {stationsError && (
             <p>Error cargando gasolineras: {stationsError.message}</p>
           )}
-          {pricesError && (
-            <p>Error cargando precios: {pricesError.message}</p>
+          {(pricesError || gasolina95Error) && (
+            <p>Error cargando precios: {(pricesError ?? gasolina95Error)?.message}</p>
           )}
         </div>
       )}

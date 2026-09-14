@@ -36,6 +36,7 @@ export default function ReportPricePage({
     name: string;
     address: string | null;
   } | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoFileName, setPhotoFileName] = useState<string | null>(null);
   const [readyToContinue, setReadyToContinue] = useState(false);
@@ -78,7 +79,8 @@ export default function ReportPricePage({
   }, [params.id, router, supabase]);
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const file = e.target.files?.[0] ?? null;
+    setPhotoFile(file);
     setPhotoPreviewUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
       return file ? URL.createObjectURL(file) : null;
@@ -88,6 +90,7 @@ export default function ReportPricePage({
 
   function clearPhoto() {
     if (photoInputRef.current) photoInputRef.current.value = '';
+    setPhotoFile(null);
     setPhotoPreviewUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
       return null;
@@ -113,8 +116,6 @@ export default function ReportPricePage({
       setError('Introduce un precio válido.');
       return;
     }
-
-    const photoFile = photoInputRef.current?.files?.[0];
 
     setLoading(true);
 
@@ -266,6 +267,14 @@ export default function ReportPricePage({
           <span className="text-sm text-muted">€ / litro</span>
         </div>
 
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoChange}
+          className="hidden"
+        />
+
         {photoPreviewUrl ? (
           <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -289,17 +298,14 @@ export default function ReportPricePage({
             </button>
           </div>
         ) : (
-          <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-line px-4 py-6 text-center text-xs text-muted">
+          <button
+            type="button"
+            onClick={() => photoInputRef.current?.click()}
+            className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-line px-4 py-6 text-center text-xs text-muted"
+          >
             <span className="mb-1 text-xl text-yellow">＋</span>
             Añade una foto del cartel de precios
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              className="hidden"
-            />
-          </label>
+          </button>
         )}
 
         <div className="rounded-xl border border-green/30 bg-green/10 px-4 py-3 text-xs text-green">

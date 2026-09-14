@@ -47,8 +47,7 @@ export default async function ProfilePage() {
   const streakCount = profile?.streak_count ?? 0;
   const formattedXp = totalXp.toLocaleString('es-ES');
   const levelProgress = getLevelProgress(totalXp);
-  const ringOffset =
-    RING_ARC_LENGTH * (1 - levelProgress.progressPercent / 100);
+  const ringDashLength = RING_ARC_LENGTH * (levelProgress.progressPercent / 100);
 
   return (
     <main className="min-h-screen pb-24">
@@ -67,8 +66,8 @@ export default async function ProfilePage() {
             className="stroke-yellow"
             strokeWidth="16"
             strokeLinecap="round"
-            strokeDasharray={RING_ARC_LENGTH}
-            strokeDashoffset={ringOffset}
+            strokeDasharray={`${ringDashLength} ${RING_ARC_LENGTH}`}
+            strokeDashoffset={0}
           />
           <text
             x="110"

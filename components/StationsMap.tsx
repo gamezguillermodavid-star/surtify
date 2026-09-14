@@ -22,10 +22,12 @@ export type PriceLevel = 'cheap' | 'mid' | 'high';
 export type MapStation = {
   id: string;
   name: string;
+  brand: string | null;
   address: string | null;
   latitude: number;
   longitude: number;
   price: number | null;
+  price95: number | null;
   level: PriceLevel | null;
 };
 
@@ -158,7 +160,7 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
     if (!userPosition) return null;
 
     const withPrice = stations.filter(
-      (station): station is MapStation & { price: number } => station.price != null
+      (station): station is MapStation & { price95: number } => station.price95 != null
     );
     if (withPrice.length === 0) return null;
 
@@ -178,7 +180,7 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
     }
 
     return candidates.reduce((best, current) =>
-      current.station.price < best.station.price ? current : best
+      current.station.price95 < best.station.price95 ? current : best
     );
   }, [stations, userPosition]);
 
@@ -262,14 +264,22 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
             closeOnClick={false}
           >
             <div className="min-w-[160px] text-xs text-[#141414]">
-              <div className="font-display text-sm uppercase">{selectedStation.name}</div>
+              <div className="font-display text-sm uppercase">
+                {selectedStation.name}
+                {selectedStation.brand ? ` · ${selectedStation.brand}` : ''}
+              </div>
               {selectedStation.address && (
                 <div className="mt-0.5 text-muted">{selectedStation.address}</div>
               )}
               <div className="mt-1 font-mono font-bold">
                 {selectedStation.price != null
                   ? `${formatPrice(selectedStation.price)} € · Diésel`
-                  : 'Sin precio reportado'}
+                  : 'Diésel: sin precio reportado'}
+              </div>
+              <div className="mt-0.5 font-mono font-bold">
+                {selectedStation.price95 != null
+                  ? `${formatPrice(selectedStation.price95)} € · Gasolina 95`
+                  : 'Gasolina 95: sin precio reportado'}
               </div>
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 <a
@@ -308,9 +318,22 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
         onClick={() => flyToStation(nearestCheapest.station)}
         className="mx-4 mt-4 block w-full rounded-2xl border border-line bg-surface2 px-4 py-3 text-left text-sm"
       >
-        La más barata cerca de ti: <b>{nearestCheapest.station.name}</b>,{' '}
-        {formatPrice(nearestCheapest.station.price)} € · a{' '}
-        {formatDistanceKm(nearestCheapest.distanceKm)}
+        <div className="text-xs text-muted">
+          Más barata cerca de ti · Gasolina 95
+        </div>
+        <div className="mt-0.5 font-display text-sm uppercase">
+          {nearestCheapest.station.name}
+          {nearestCheapest.station.brand ? ` · ${nearestCheapest.station.brand}` : ''}
+        </div>
+        {nearestCheapest.station.address && (
+          <div className="mt-0.5 text-xs text-muted">
+            {nearestCheapest.station.address}
+          </div>
+        )}
+        <div className="mt-1 font-mono font-bold">
+          {formatPrice(nearestCheapest.station.price95)} € · a{' '}
+          {formatDistanceKm(nearestCheapest.distanceKm)}
+        </div>
       </button>
     )}
 
