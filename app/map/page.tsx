@@ -3,6 +3,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import StationsMap, { type MapStation, type PriceLevel } from '@/components/StationsMap';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { friendlyErrorMessage } from '@/lib/friendly-error';
 
 function assignPriceLevels(
   stationsWithPrice: { id: string; price: number }[]
@@ -108,10 +109,10 @@ export default async function MapPage() {
       {(stationsError || pricesError || gasolina95Error) && (
         <div className="mx-4 mt-4 space-y-1 text-sm text-red">
           {stationsError && (
-            <p>Error cargando gasolineras: {stationsError.message}</p>
+            <p>{friendlyErrorMessage(stationsError.message)}</p>
           )}
           {(pricesError || gasolina95Error) && (
-            <p>Error cargando precios: {(pricesError ?? gasolina95Error)?.message}</p>
+            <p>{friendlyErrorMessage((pricesError ?? gasolina95Error)?.message)}</p>
           )}
         </div>
       )}

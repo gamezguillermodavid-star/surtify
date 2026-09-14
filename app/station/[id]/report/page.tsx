@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { friendlyErrorMessage } from '@/lib/friendly-error';
 
 const FUEL_OPTIONS = ['Diésel', 'Gasolina 95', 'Gasolina 98', 'GLP'] as const;
 
@@ -128,7 +129,7 @@ export default function ReportPricePage({
 
     if (priceError) {
       setLoading(false);
-      setError(priceError.message);
+      setError(friendlyErrorMessage(priceError.message));
       return;
     }
 
@@ -145,7 +146,7 @@ export default function ReportPricePage({
         setLoading(false);
         setReadyToContinue(true);
         setError(
-          `El precio se ha guardado, pero no se pudo subir la foto: ${uploadError.message}`
+          `El precio se ha guardado, pero no se pudo subir la foto. ${friendlyErrorMessage(uploadError.message)}`
         );
         return;
       }
@@ -162,7 +163,7 @@ export default function ReportPricePage({
         setLoading(false);
         setReadyToContinue(true);
         setError(
-          `El precio se ha guardado, pero no se pudo registrar la foto: ${photoRowError.message}`
+          `El precio se ha guardado, pero no se pudo registrar la foto. ${friendlyErrorMessage(photoRowError.message)}`
         );
         return;
       }
@@ -181,7 +182,7 @@ export default function ReportPricePage({
 
     if (xpError) {
       setLoading(false);
-      setError(xpError.message);
+      setError(friendlyErrorMessage(xpError.message));
       return;
     }
 
@@ -193,7 +194,7 @@ export default function ReportPricePage({
 
     if (profileFetchError) {
       setLoading(false);
-      setError(profileFetchError.message);
+      setError(friendlyErrorMessage(profileFetchError.message));
       return;
     }
 
@@ -207,7 +208,7 @@ export default function ReportPricePage({
 
     if (profileUpdateError) {
       setLoading(false);
-      setError(profileUpdateError.message);
+      setError(friendlyErrorMessage(profileUpdateError.message));
       return;
     }
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { friendlyErrorMessage } from '@/lib/friendly-error';
 
 type Mode = 'register' | 'login';
 
@@ -52,7 +53,7 @@ export default function AuthPage() {
 
     if (signUpError) {
       setLoading(false);
-      setError(signUpError.message);
+      setError(friendlyErrorMessage(signUpError.message));
       return;
     }
 
@@ -64,7 +65,7 @@ export default function AuthPage() {
 
       if (profileError) {
         setLoading(false);
-        setError(profileError.message);
+        setError(friendlyErrorMessage(profileError.message));
         return;
       }
     }
@@ -86,7 +87,7 @@ export default function AuthPage() {
     setLoading(false);
 
     if (signInError) {
-      setError(signInError.message);
+      setError(friendlyErrorMessage(signInError.message));
       return;
     }
 

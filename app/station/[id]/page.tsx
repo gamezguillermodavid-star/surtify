@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import { buildGoogleMapsUrl, buildWazeUrl } from '@/lib/directions';
+import { friendlyErrorMessage } from '@/lib/friendly-error';
 import PriceConfirmButtons from './PriceConfirmButtons';
 
 const FUEL_TYPES = [
@@ -44,7 +45,7 @@ export default async function StationPage({
           ‹ Volver
         </Link>
         <p className="mt-4 text-sm text-red">
-          Error cargando gasolineras: {stationError.message}
+          {friendlyErrorMessage(stationError.message)}
         </p>
       </main>
     );
@@ -107,7 +108,7 @@ export default async function StationPage({
 
       {pricesError && (
         <div className="mx-4 mt-4 space-y-1 text-sm text-red">
-          <p>Error cargando precios: {pricesError.message}</p>
+          <p>{friendlyErrorMessage(pricesError.message)}</p>
         </div>
       )}
 

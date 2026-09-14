@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { friendlyErrorMessage } from '@/lib/friendly-error';
 
 export default function FeedbackForm() {
   const supabase = createClient();
@@ -37,7 +38,7 @@ export default function FeedbackForm() {
     setLoading(false);
 
     if (insertError) {
-      setError(insertError.message);
+      setError(friendlyErrorMessage(insertError.message));
       return;
     }
 
