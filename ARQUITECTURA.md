@@ -60,6 +60,8 @@ Tablas principales en PostgreSQL:
 - `missions` — misiones activas y su definición, con periodo (semanal o mensual) y perfil al que van dirigidas
 - `user_missions` — progreso de cada usuario en las misiones activas
 - `territories` — zona geográfica y usuario con más aportes recientes en ella
+- `favorites` — gasolineras que un usuario marca como favoritas
+- `push_subscriptions` — suscripciones de notificaciones push (Web Push) por usuario y dispositivo
 
 No se almacena histórico de precios de cara al usuario (solo el precio vigente), aunque internamente sí se guarda el registro de eventos por trazabilidad y para el cálculo de reputación.
 
@@ -75,7 +77,7 @@ El objetivo del sistema de puntos es que aportar datos se sienta como jugar, no 
 - **Rachas por aportes, no por días**: la racha cuenta aportes consecutivos (reportar o confirmar un precio), sin importar cuánto tiempo pase entre uno y otro. Un particular con 6 aportes en tres meses tiene una racha de 6, igual de válida que la de alguien que la consigue en una semana.
 - **Misiones semanales y mensuales**: las semanales encajan con quien repostea a menudo; se añaden misiones mensuales pensadas para el particular ocasional ("reporta 1 precio este mes"), para que también tenga un objetivo alcanzable.
 - **Perfil de conductor profesional (opcional)**: el usuario puede marcarse como taxista, VTC, transportista o repartidor en el registro. Este perfil tiene sus propias misiones e insignias ("Kilómetros de confianza") y sirve además como segmentación real de cara a futuros acuerdos con gasolineras, ya que es el colectivo con mayor volumen de repostaje.
-- **Notificaciones por contexto, no por frecuencia**: para el particular, avisar cuando baja el precio en su gasolinera favorita o en su ruta habitual es más efectivo que pedirle que abra la app a diario.
+- **Notificaciones por contexto, no por frecuencia**: para el particular, avisar cuando baja el precio en su gasolinera favorita o en su ruta habitual es más efectivo que pedirle que abra la app a diario. *(Implementado parcialmente: notificación push al marcar una gasolinera como favorita y recibir un reporte de precio o foto nuevo. Falta la parte de "ruta habitual"; ver `CLAUDE.md` para el estado real.)*
 - **Territorios**: el usuario con más aportes recientes en una zona se convierte en su referente temporal, generando competencia sana entre usuarios de la misma zona.
 
 ## 7. Reputación y calidad de datos

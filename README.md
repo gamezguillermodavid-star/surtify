@@ -8,6 +8,7 @@ Aplicación de código abierto para encontrar y compartir precios reales de gaso
 - Precios reportados y confirmados por la comunidad, sin depender de fuentes oficiales con retraso
 - Fichas de gasolinera con fotos, servicios (cafetería, lavado, tienda...) y comentarios
 - Sistema de niveles, rachas y misiones para incentivar los aportes
+- Gasolineras favoritas con notificaciones push cuando alguien reporta un precio o una foto nueva
 - API pública de datos agregados (en desarrollo)
 
 Documentación completa de la arquitectura técnica y del modelo de datos en [`ARQUITECTURA.md`](./ARQUITECTURA.md).
@@ -20,6 +21,7 @@ Next.js · TypeScript · Tailwind CSS · Supabase (PostgreSQL + Auth) · Mapbox
 
 ```
 app/
+  api/        → rutas de servidor (ej. envío de notificaciones push)
   auth/       → registro y verificación OTP
   map/        → pantalla principal del mapa
   station/    → ficha de gasolinera y reporte de precios
@@ -27,6 +29,8 @@ app/
   missions/   → misiones semanales y ranking por zona
 components/   → componentes de interfaz reutilizables
 lib/          → utilidades y cliente de Supabase
+public/
+  sw.js       → service worker (notificaciones push)
 supabase/
   migrations/ → esquema de la base de datos
 docs/         → mockups y documentación adicional
@@ -53,8 +57,9 @@ El código de este repositorio es público bajo licencia MIT. Los datos generado
 3. En **Project Settings → Environment Variables**, añade:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (privada, sin prefijo `NEXT_PUBLIC_` — la usa `app/api/notify-favorites` para leer favoritos y suscripciones)
    - `NEXT_PUBLIC_MAPBOX_TOKEN`
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (notificaciones push, generadas con `npx web-push generate-vapid-keys`)
 4. Despliega. El proyecto arranca correctamente aunque estas variables no estén configuradas todavía (las pantallas de registro y mapa mostrarán errores solo al intentar usarlas, no al cargar).
 5. Dominio propio: cuando compres `surtify.es`, añádelo en **Project Settings → Domains** y sigue las instrucciones de Vercel para apuntar el DNS.
 
