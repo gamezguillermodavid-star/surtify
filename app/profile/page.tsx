@@ -1,4 +1,5 @@
 import BottomNav from '@/components/BottomNav';
+import DriverTypeSelector from '@/components/DriverTypeSelector';
 import FeedbackForm from '@/components/FeedbackForm';
 import SignOutButton from '@/components/SignOutButton';
 import { createClient } from '@/lib/supabase/server';
@@ -92,11 +93,13 @@ export default async function ProfilePage() {
               )} XP para ${levelProgress.nextName}`}
         </div>
         <div className="mt-2 font-display text-lg uppercase">{displayName}</div>
-        {profile?.driver_type === 'profesional' && (
-          <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-line bg-surface2 px-3 py-1 text-xs text-muted">
-            🚕 Conductor profesional
-          </span>
-        )}
+        <div className="mt-3 w-full">
+          <DriverTypeSelector
+            initialDriverType={
+              profile?.driver_type === 'profesional' ? 'profesional' : 'particular'
+            }
+          />
+        </div>
       </div>
 
       <div className="mt-6 flex justify-center gap-8">
