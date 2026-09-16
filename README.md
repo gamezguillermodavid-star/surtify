@@ -9,6 +9,7 @@ Aplicación de código abierto para encontrar y compartir precios reales de gaso
 - Fichas de gasolinera con fotos, servicios (cafetería, lavado, tienda...) y comentarios
 - Sistema de niveles, rachas y misiones para incentivar los aportes
 - Gasolineras favoritas con notificaciones push cuando alguien reporta un precio o una foto nueva
+- Perfil con selector de tipo de conductor (particular / profesional)
 - API pública de datos agregados (en desarrollo)
 
 Documentación completa de la arquitectura técnica y del modelo de datos en [`ARQUITECTURA.md`](./ARQUITECTURA.md).
