@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { buildGoogleMapsUrl, buildWazeUrl } from '@/lib/directions';
 import { friendlyErrorMessage } from '@/lib/friendly-error';
 import PriceConfirmButtons from './PriceConfirmButtons';
+import FavoriteButton from '@/components/FavoriteButton';
 
 const FUEL_TYPES = [
   { key: 'diesel', label: 'Diésel' },
@@ -98,6 +99,7 @@ export default async function StationPage({
         >
           ‹
         </Link>
+        <FavoriteButton stationId={station.id} />
         <div>
           <div className="font-display text-xl uppercase">{station.name}</div>
           <div className="text-xs text-muted">

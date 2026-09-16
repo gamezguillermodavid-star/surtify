@@ -212,6 +212,17 @@ export default function ReportPricePage({
       return;
     }
 
+    void fetch('/api/notify-favorites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stationId: params.id,
+        fuelType: FUEL_TYPE_MAP[fuel],
+        price: parsedPrice,
+        hasPhoto: photoUploaded,
+      }),
+    }).catch(() => {});
+
     setLoading(false);
     router.push(`/station/${params.id}`);
   }
