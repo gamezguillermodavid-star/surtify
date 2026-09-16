@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import InstallPrompt from '../components/InstallPrompt';
 
 export const metadata: Metadata = {
   title: 'Surtify · precios de gasolineras en comunidad',
@@ -19,7 +20,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className="font-body">{children}</body>
+      <body className="font-body">
+        <InstallPrompt />
+        {children}
+      </body>
     </html>
   );
 }
