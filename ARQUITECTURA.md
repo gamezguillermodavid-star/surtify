@@ -17,7 +17,7 @@ El proyecto es de código abierto porque queremos que cualquier desarrollador pu
 - Mapa con geolocalización del usuario y de gasolineras
 - Buscador de gasolineras por nombre, marca o dirección (para encontrar la gasolinera habitual del usuario aunque no esté a la vista en el mapa)
 - Reporte manual de precio por gasolinera y tipo de combustible (diésel, gasolina 95/98, GLP, y variantes menos habituales como AdBlue, gasóleo premium/B o gasolina 95 premium)
-- Ficha de gasolinera con precio actual, distancia y servicios básicos
+- Ficha de gasolinera con precio actual, distancia, horario de apertura, servicios básicos y tiempo de espera, reportados por la comunidad
 - Sistema de puntos y niveles (gamificación básica)
 
 **Fase 2 — Comunidad avanzada**
@@ -52,10 +52,12 @@ Se descarta Docker para mantener el despliegue simple mientras el proyecto está
 Tablas principales en PostgreSQL:
 
 - `users` — perfil del usuario, nivel, XP total, racha actual (por aportes, no por días), reputación, tipo de perfil (particular o conductor profesional)
-- `gas_stations` — ubicación, marca, servicios disponibles
+- `gas_stations` — ubicación, marca, horario de apertura
 - `fuel_prices` — precio actual por gasolinera y tipo de combustible (diésel, gasolina 95/98, GLP, AdBlue, gasóleo premium/B, gasolina 95 premium), con marca de tiempo del último reporte
 - `price_confirmations` — votos arriba o abajo sobre un precio reportado, con el peso calculado según la reputación de quien vota
 - `station_photos` — fotos subidas por usuarios, asociadas a una gasolinera
+- `service_reports` — servicios disponibles (aseos, pago con tarjeta, tienda, aire y agua, lavado) que cada usuario confirma haber visto en una gasolinera; un servicio se muestra en la ficha en cuanto al menos un usuario lo ha reportado
+- `wait_time_reports` — nivel de espera (sin espera / espera normal / mucha espera) que un usuario reporta para una gasolinera en un momento dado; la ficha muestra el reporte más reciente
 - `comments` — comentarios de usuarios sobre una gasolinera
 - `xp_events` — histórico de eventos que otorgan puntos (para calcular niveles y rachas sin tener que reconstruirlos cada vez)
 - `missions` — misiones activas y su definición, con periodo (semanal o mensual) y perfil al que van dirigidas

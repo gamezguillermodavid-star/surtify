@@ -145,6 +145,7 @@ async function main() {
       address: buildAddress(raw),
       latitude: parseSpanishNumber(raw['Latitud']),
       longitude: parseSpanishNumber(raw['Longitud (WGS84)']),
+      schedule: raw['Horario']?.trim() || null,
     }))
     .filter((r) => r.ideess && r.latitude != null && r.longitude != null);
 

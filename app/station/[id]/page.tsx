@@ -4,7 +4,37 @@ import { notFound } from 'next/navigation';
 import { buildGoogleMapsUrl, buildWazeUrl } from '@/lib/directions';
 import { friendlyErrorMessage } from '@/lib/friendly-error';
 import PriceConfirmButtons from './PriceConfirmButtons';
+import Schedule from './Schedule';
 import FavoriteButton from '@/components/FavoriteButton';
+
+const SERVICE_LABELS: Record<string, string> = {
+  aseos: '🚻 Aseos',
+  pago_tarjeta: '💳 Pago con tarjeta',
+  tienda: '🏪 Tienda',
+  aire_agua: '💨 Aire y agua',
+  lavado: '🚿 Lavado',
+};
+
+const WAIT_LABELS: Record<string, { label: string; className: string }> = {
+  sin_espera: { label: '🟢 Sin espera', className: 'border-green text-green' },
+  espera_normal: {
+    label: '🟡 Espera normal',
+    className: 'border-yellow text-yellow',
+  },
+  mucha_espera: { label: '🔴 Mucha espera', className: 'border-red text-red' },
+};
+
+function relativeTime(isoDate: string): string {
+  const minutes = Math.max(
+    0,
+    Math.round((Date.now() - new Date(isoDate).getTime()) / 60000)
+  );
+  if (minutes < 1) return 'ahora mismo';
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  return `hace ${Math.round(hours / 24)} d`;
+}
 
 const FUEL_TYPES = [
   { key: 'diesel', label: 'Diésel' },
@@ -33,7 +63,7 @@ export default async function StationPage({
 
   const { data: station, error: stationError } = await supabase
     .from('gas_stations')
-    .select('id, name, address, services, latitude, longitude')
+    .select('id, name, address, latitude, longitude, schedule')
     .eq('id', params.id)
     .single();
 
@@ -42,6 +72,18 @@ export default async function StationPage({
     .select('id, fuel_type, price, reported_at')
     .eq('station_id', params.id)
     .order('reported_at', { ascending: false });
+
+  const { data: serviceReports } = await supabase
+    .from('service_reports')
+    .select('service')
+    .eq('station_id', params.id);
+
+  const { data: waitReports } = await supabase
+    .from('wait_time_reports')
+    .select('level, created_at')
+    .eq('station_id', params.id)
+    .order('created_at', { ascending: false })
+    .limit(1);
 
   if (stationError && !station) {
     return (
@@ -91,7 +133,11 @@ export default async function StationPage({
   const lowestPrice =
     pricesWithData.length > 0 ? Math.min(...pricesWithData) : null;
 
-  const services: string[] = (station.services ?? []) as string[];
+  const confirmedServices = Array.from(
+    new Set((serviceReports ?? []).map((row) => row.service))
+  );
+
+  const latestWait = waitReports && waitReports.length > 0 ? waitReports[0] : null;
 
   const latestReport = fuelPrices && fuelPrices.length > 0 ? fuelPrices[0] : null;
 
@@ -176,14 +222,29 @@ export default async function StationPage({
         </div>
       )}
 
-      {services.length > 0 && (
+      <Schedule raw={station.schedule} />
+
+      {latestWait && WAIT_LABELS[latestWait.level] && (
+        <div className="mx-4 mt-4">
+          <span
+            className={`inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-semibold ${WAIT_LABELS[latestWait.level].className}`}
+          >
+            {WAIT_LABELS[latestWait.level].label}
+          </span>
+          <span className="ml-2 text-[11px] text-muted">
+            reportado {relativeTime(latestWait.created_at)}
+          </span>
+        </div>
+      )}
+
+      {confirmedServices.length > 0 && (
         <div className="mx-4 mt-4 flex flex-wrap gap-2">
-          {services.map((service) => (
+          {confirmedServices.map((service) => (
             <span
               key={service}
               className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-muted"
             >
-              {service}
+              {SERVICE_LABELS[service] ?? service}
             </span>
           ))}
         </div>

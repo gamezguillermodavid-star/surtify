@@ -27,6 +27,20 @@ const FUEL_TYPE_MAP: Record<(typeof FUEL_OPTIONS)[number], string> = {
   AdBlue: 'adblue',
 };
 
+const SERVICE_OPTIONS = [
+  { key: 'aseos', label: '🚻 Aseos' },
+  { key: 'pago_tarjeta', label: '💳 Pago con tarjeta' },
+  { key: 'tienda', label: '🏪 Tienda' },
+  { key: 'aire_agua', label: '💨 Aire y agua' },
+  { key: 'lavado', label: '🚿 Lavado' },
+] as const;
+
+const WAIT_OPTIONS = [
+  { key: 'sin_espera', label: 'Sin espera' },
+  { key: 'espera_normal', label: 'Espera normal' },
+  { key: 'mucha_espera', label: 'Mucha espera' },
+] as const;
+
 export default function ReportPricePage({
   params,
 }: {
@@ -58,6 +72,20 @@ export default function ReportPricePage({
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoFileName, setPhotoFileName] = useState<string | null>(null);
   const [readyToContinue, setReadyToContinue] = useState(false);
+  const [selectedServices, setSelectedServices] = useState<
+    (typeof SERVICE_OPTIONS)[number]['key'][]
+  >([]);
+  const [waitLevel, setWaitLevel] = useState<
+    (typeof WAIT_OPTIONS)[number]['key'] | null
+  >(null);
+
+  function toggleService(service: (typeof SERVICE_OPTIONS)[number]['key']) {
+    setSelectedServices((previous) =>
+      previous.includes(service)
+        ? previous.filter((s) => s !== service)
+        : [...previous, service]
+    );
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -186,6 +214,25 @@ export default function ReportPricePage({
       }
 
       photoUploaded = true;
+    }
+
+    if (selectedServices.length > 0) {
+      await supabase.from('service_reports').upsert(
+        selectedServices.map((service) => ({
+          station_id: params.id,
+          user_id: user.id,
+          service,
+        })),
+        { onConflict: 'station_id,user_id,service', ignoreDuplicates: true }
+      );
+    }
+
+    if (waitLevel) {
+      await supabase.from('wait_time_reports').insert({
+        station_id: params.id,
+        user_id: user.id,
+        level: waitLevel,
+      });
     }
 
     const xpAwarded = photoUploaded ? 3 : 1;
@@ -339,6 +386,52 @@ export default function ReportPricePage({
 
         <div className="rounded-xl border border-green/30 bg-green/10 px-4 py-3 text-xs text-green">
           ⚡ Ganas 3 puntos por reportar con foto
+        </div>
+
+        <div>
+          <div className="mb-2 text-xs uppercase tracking-wide text-muted">
+            Servicios que has visto (opcional)
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {SERVICE_OPTIONS.map((s) => (
+              <button
+                type="button"
+                key={s.key}
+                onClick={() => toggleService(s.key)}
+                className={`tap-target rounded-xl border px-3 py-2 text-sm ${
+                  selectedServices.includes(s.key)
+                    ? 'border-green bg-green/15 font-semibold text-green'
+                    : 'border-line bg-surface text-ink'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 text-xs uppercase tracking-wide text-muted">
+            ¿Cuánta espera hay ahora? (opcional)
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {WAIT_OPTIONS.map((w) => (
+              <button
+                type="button"
+                key={w.key}
+                onClick={() =>
+                  setWaitLevel((previous) => (previous === w.key ? null : w.key))
+                }
+                className={`tap-target rounded-xl border px-3 py-2 text-sm ${
+                  waitLevel === w.key
+                    ? 'border-yellow bg-yellow font-semibold text-[#141414]'
+                    : 'border-line bg-surface text-ink'
+                }`}
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && <p className="text-sm text-red">{error}</p>}

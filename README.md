@@ -8,7 +8,7 @@ Aplicación de código abierto para encontrar y compartir precios reales de gaso
 - Buscador de gasolineras por nombre, marca o dirección
 - Colorea el mapa (barato/medio/caro) por el combustible que elijas — diésel, gasolina 95, gasolina 98 o GLP — comparando cada gasolinera contra las que tiene cerca
 - Precios reportados y confirmados por la comunidad, sin depender de fuentes oficiales con retraso, para diésel, gasolina 95/98, GLP, AdBlue, gasóleo premium/B y gasolina 95 premium
-- Fichas de gasolinera con fotos, servicios (cafetería, lavado, tienda...) y comentarios
+- Fichas de gasolinera con fotos, horario de apertura (real, importado del Ministerio), servicios (aseos, pago con tarjeta, tienda, aire y agua, lavado) y tiempo de espera, ambos reportados por la comunidad, y comentarios
 - Sistema de niveles, rachas y misiones para incentivar los aportes
 - Gasolineras favoritas con notificaciones push cuando alguien reporta un precio o una foto nueva
 - Perfil con selector de tipo de conductor (particular / profesional)
@@ -68,10 +68,15 @@ El código de este repositorio es público bajo licencia MIT. Los datos generado
 
 ## Pendiente antes de producción
 
-- Sustituir el mapa de ejemplo en `/app/map` por la integración real con Mapbox (`docs/CURSOR-PROMPTS.md`, prompt 6).
-- Añadir los iconos reales de la PWA en `/public/icons/` (`icon-192.png` y `icon-512.png`; el `manifest.json` ya los referencia).
-- Ejecutar la migración `supabase/migrations/0001_init.sql` en el proyecto de Supabase (ver `docs/SUPABASE-GUIDE.md`).
-- Conectar los formularios de reporte de precio y confirmación con Supabase (por ahora son solo interfaz).
+Lista completa y con contexto en [`CLAUDE.md`](./CLAUDE.md#pendiente-en-el-orden-acordado). Resumen:
+
+- Comparar el precio destacado de la ficha de gasolinera contra estaciones cercanas, no contra sí misma.
+- Criterio real de desbloqueo de insignias.
+- Ampliar la importación de datos a más provincias/comunidades autónomas.
+- Mover la escritura de XP a una función de servidor en vez de un `update` directo desde el cliente.
+- Decidir si se implementan zonas geográficas reales para "territorios".
+- Manejo de errores: `loading.tsx` por sección, revisar errores ignorados en misiones/perfil, try/catch de red.
+- El aviso de "espera reportada" no caduca: decidir un umbral para dejar de mostrarlo si nadie lo actualiza.
 
 ## Contribuir
 
