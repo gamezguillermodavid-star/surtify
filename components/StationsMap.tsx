@@ -16,8 +16,24 @@ import { buildGoogleMapsUrl, buildWazeUrl } from '@/lib/directions';
 import { formatDistanceKm, haversineDistanceKm } from '@/lib/geo';
 
 const NEARBY_RADIUS_KM = 10;
+const FUEL_TYPE_STORAGE_KEY = 'surtify:map-fuel-type';
 
 export type PriceLevel = 'cheap' | 'mid' | 'high';
+
+export type FuelType = 'diesel' | 'gasolina_95' | 'gasolina_98' | 'glp';
+
+const FUEL_TYPE_OPTIONS: { key: FuelType; label: string }[] = [
+  { key: 'diesel', label: 'Diésel' },
+  { key: 'gasolina_95', label: 'Gasolina 95' },
+  { key: 'gasolina_98', label: 'Gasolina 98' },
+  { key: 'glp', label: 'GLP' },
+];
+
+const FUEL_TYPE_KEYS = FUEL_TYPE_OPTIONS.map((option) => option.key);
+
+function isFuelType(value: string | null): value is FuelType {
+  return value != null && (FUEL_TYPE_KEYS as string[]).includes(value);
+}
 
 export type MapStation = {
   id: string;
@@ -26,9 +42,7 @@ export type MapStation = {
   address: string | null;
   latitude: number;
   longitude: number;
-  price: number | null;
-  price95: number | null;
-  level: PriceLevel | null;
+  prices: Record<FuelType, number | null>;
 };
 
 const LEVEL_COLOR: Record<PriceLevel, string> = {
@@ -113,6 +127,19 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
   const [locationDenied, setLocationDenied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [selectedFuel, setSelectedFuel] = useState<FuelType>('diesel');
+
+  useEffect(() => {
+    const saved = localStorage.getItem(FUEL_TYPE_STORAGE_KEY);
+    if (isFuelType(saved)) {
+      setSelectedFuel(saved);
+    }
+  }, []);
+
+  const handleSelectFuel = useCallback((fuel: FuelType) => {
+    setSelectedFuel(fuel);
+    localStorage.setItem(FUEL_TYPE_STORAGE_KEY, fuel);
+  }, []);
 
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
@@ -138,6 +165,41 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
 
   const selectedStation = selectedId ? stationsById.get(selectedId) ?? null : null;
 
+  const priceLevelByStationId = useMemo(() => {
+    const levels = new Map<string, PriceLevel>();
+
+    const withPrice = stations
+      .map((station) => ({ station, price: station.prices[selectedFuel] }))
+      .filter(
+        (entry): entry is { station: MapStation; price: number } => entry.price != null
+      );
+
+    for (const entry of withPrice) {
+      const nearby = withPrice.filter(
+        (other) =>
+          haversineDistanceKm(
+            entry.station.latitude,
+            entry.station.longitude,
+            other.station.latitude,
+            other.station.longitude
+          ) <= NEARBY_RADIUS_KM
+      );
+
+      const min = Math.min(...nearby.map((n) => n.price));
+      const max = Math.max(...nearby.map((n) => n.price));
+
+      if (entry.price === min) {
+        levels.set(entry.station.id, 'cheap');
+      } else if (entry.price === max) {
+        levels.set(entry.station.id, 'high');
+      } else {
+        levels.set(entry.station.id, 'mid');
+      }
+    }
+
+    return levels;
+  }, [stations, selectedFuel]);
+
   const geojson = useMemo(
     () => ({
       type: 'FeatureCollection' as const,
@@ -145,7 +207,7 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
         type: 'Feature' as const,
         properties: {
           id: station.id,
-          level: station.level ?? 'unknown',
+          level: priceLevelByStationId.get(station.id) ?? 'unknown',
         },
         geometry: {
           type: 'Point' as const,
@@ -153,7 +215,7 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
         },
       })),
     }),
-    [stations]
+    [stations, priceLevelByStationId]
   );
 
   const initialViewState = useMemo(() => {
@@ -168,18 +230,21 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
   const nearestCheapest = useMemo(() => {
     if (!userPosition) return null;
 
-    const withPrice = stations.filter(
-      (station): station is MapStation & { price95: number } => station.price95 != null
-    );
+    const withPrice = stations
+      .map((station) => ({ station, price95: station.prices.gasolina_95 }))
+      .filter(
+        (entry): entry is { station: MapStation; price95: number } => entry.price95 != null
+      );
     if (withPrice.length === 0) return null;
 
-    const withDistance = withPrice.map((station) => ({
-      station,
+    const withDistance = withPrice.map((entry) => ({
+      station: entry.station,
+      price95: entry.price95,
       distanceKm: haversineDistanceKm(
         userPosition.latitude,
         userPosition.longitude,
-        station.latitude,
-        station.longitude
+        entry.station.latitude,
+        entry.station.longitude
       ),
     }));
 
@@ -189,7 +254,7 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
     }
 
     return candidates.reduce((best, current) =>
-      current.station.price95 < best.station.price95 ? current : best
+      current.price95 < best.price95 ? current : best
     );
   }, [stations, userPosition]);
 
@@ -302,7 +367,25 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
       )}
     </div>
 
-    <div className="relative mx-4 mt-4 h-[360px] overflow-hidden rounded-2xl border border-line">
+    <div className="mx-4 mt-3 flex flex-wrap items-center gap-2">
+      <span className="text-xs text-muted">Colorear por:</span>
+      {FUEL_TYPE_OPTIONS.map(({ key, label }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => handleSelectFuel(key)}
+          className={`tap-target rounded-xl border px-3 py-1.5 text-xs ${
+            selectedFuel === key
+              ? 'border-yellow bg-yellow font-semibold text-[#141414]'
+              : 'border-line bg-surface text-ink'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+
+    <div className="relative mx-4 mt-3 h-[360px] overflow-hidden rounded-2xl border border-line">
       <MapGL
         ref={mapRef}
         mapboxAccessToken={token}
@@ -341,16 +424,16 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
               {selectedStation.address && (
                 <div className="mt-0.5 text-muted">{selectedStation.address}</div>
               )}
-              <div className="mt-1 font-mono font-bold">
-                {selectedStation.price != null
-                  ? `${formatPrice(selectedStation.price)} € · Diésel`
-                  : 'Diésel: sin precio reportado'}
-              </div>
-              <div className="mt-0.5 font-mono font-bold">
-                {selectedStation.price95 != null
-                  ? `${formatPrice(selectedStation.price95)} € · Gasolina 95`
-                  : 'Gasolina 95: sin precio reportado'}
-              </div>
+              {FUEL_TYPE_OPTIONS.map(({ key, label }) => {
+                const price = selectedStation.prices[key];
+                return (
+                  <div key={key} className="mt-0.5 font-mono font-bold">
+                    {price != null
+                      ? `${formatPrice(price)} € · ${label}`
+                      : `${label}: sin precio reportado`}
+                  </div>
+                );
+              })}
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 <a
                   href={buildWazeUrl(selectedStation.latitude, selectedStation.longitude)}
@@ -401,7 +484,7 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
           </div>
         )}
         <div className="mt-1 font-mono font-bold">
-          {formatPrice(nearestCheapest.station.price95)} € · a{' '}
+          {formatPrice(nearestCheapest.price95)} € · a{' '}
           {formatDistanceKm(nearestCheapest.distanceKm)}
         </div>
       </button>

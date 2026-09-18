@@ -5,7 +5,9 @@ Aplicación de código abierto para encontrar y compartir precios reales de gaso
 ## Qué hace
 
 - Mapa con la ubicación del usuario y la gasolinera más barata cercana
-- Precios reportados y confirmados por la comunidad, sin depender de fuentes oficiales con retraso
+- Buscador de gasolineras por nombre, marca o dirección
+- Colorea el mapa (barato/medio/caro) por el combustible que elijas — diésel, gasolina 95, gasolina 98 o GLP — comparando cada gasolinera contra las que tiene cerca
+- Precios reportados y confirmados por la comunidad, sin depender de fuentes oficiales con retraso, para diésel, gasolina 95/98, GLP, AdBlue, gasóleo premium/B y gasolina 95 premium
 - Fichas de gasolinera con fotos, servicios (cafetería, lavado, tienda...) y comentarios
 - Sistema de niveles, rachas y misiones para incentivar los aportes
 - Gasolineras favoritas con notificaciones push cuando alguien reporta un precio o una foto nueva

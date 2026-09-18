@@ -15,7 +15,8 @@ El proyecto es de código abierto porque queremos que cualquier desarrollador pu
 **Fase 1 — MVP**
 - Registro por email con confirmación OTP
 - Mapa con geolocalización del usuario y de gasolineras
-- Reporte manual de precio por gasolinera y tipo de combustible
+- Buscador de gasolineras por nombre, marca o dirección (para encontrar la gasolinera habitual del usuario aunque no esté a la vista en el mapa)
+- Reporte manual de precio por gasolinera y tipo de combustible (diésel, gasolina 95/98, GLP, y variantes menos habituales como AdBlue, gasóleo premium/B o gasolina 95 premium)
 - Ficha de gasolinera con precio actual, distancia y servicios básicos
 - Sistema de puntos y niveles (gamificación básica)
 
@@ -52,7 +53,7 @@ Tablas principales en PostgreSQL:
 
 - `users` — perfil del usuario, nivel, XP total, racha actual (por aportes, no por días), reputación, tipo de perfil (particular o conductor profesional)
 - `gas_stations` — ubicación, marca, servicios disponibles
-- `fuel_prices` — precio actual por gasolinera y tipo de combustible, con marca de tiempo del último reporte
+- `fuel_prices` — precio actual por gasolinera y tipo de combustible (diésel, gasolina 95/98, GLP, AdBlue, gasóleo premium/B, gasolina 95 premium), con marca de tiempo del último reporte
 - `price_confirmations` — votos arriba o abajo sobre un precio reportado, con el peso calculado según la reputación de quien vota
 - `station_photos` — fotos subidas por usuarios, asociadas a una gasolinera
 - `comments` — comentarios de usuarios sobre una gasolinera

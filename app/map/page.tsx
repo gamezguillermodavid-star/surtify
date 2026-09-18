@@ -1,39 +1,11 @@
 import BottomNav from '@/components/BottomNav';
 import ThemeToggle from '@/components/ThemeToggle';
-import StationsMap, { type MapStation, type PriceLevel } from '@/components/StationsMap';
+import StationsMap, { type FuelType, type MapStation } from '@/components/StationsMap';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { friendlyErrorMessage } from '@/lib/friendly-error';
 
-function assignPriceLevels(
-  stationsWithPrice: { id: string; price: number }[]
-): Map<string, PriceLevel> {
-  const levels = new Map<string, PriceLevel>();
-
-  if (stationsWithPrice.length === 0) {
-    return levels;
-  }
-
-  if (stationsWithPrice.length === 1) {
-    levels.set(stationsWithPrice[0].id, 'cheap');
-    return levels;
-  }
-
-  const min = Math.min(...stationsWithPrice.map((s) => s.price));
-  const max = Math.max(...stationsWithPrice.map((s) => s.price));
-
-  for (const station of stationsWithPrice) {
-    if (station.price === min) {
-      levels.set(station.id, 'cheap');
-    } else if (station.price === max) {
-      levels.set(station.id, 'high');
-    } else {
-      levels.set(station.id, 'mid');
-    }
-  }
-
-  return levels;
-}
+const DRIVING_FUEL_TYPES: FuelType[] = ['diesel', 'gasolina_95', 'gasolina_98', 'glp'];
 
 export default async function MapPage() {
   const supabase = createClient();
@@ -50,40 +22,19 @@ export default async function MapPage() {
     .select('id, name, brand, address, latitude, longitude')
     .order('name');
 
-  const { data: dieselPrices, error: pricesError } = await supabase
+  const { data: fuelPrices, error: pricesError } = await supabase
     .from('fuel_prices')
-    .select('station_id, price')
-    .eq('fuel_type', 'diesel')
+    .select('station_id, fuel_type, price')
+    .in('fuel_type', DRIVING_FUEL_TYPES)
     .order('reported_at', { ascending: false });
 
-  const { data: gasolina95Prices, error: gasolina95Error } = await supabase
-    .from('fuel_prices')
-    .select('station_id, price')
-    .eq('fuel_type', 'gasolina_95')
-    .order('reported_at', { ascending: false });
-
-  const latestDieselByStation = new Map<string, number>();
-  for (const row of dieselPrices ?? []) {
-    if (!latestDieselByStation.has(row.station_id)) {
-      latestDieselByStation.set(row.station_id, Number(row.price));
+  const latestPriceByStationAndFuel = new Map<string, number>();
+  for (const row of fuelPrices ?? []) {
+    const key = `${row.station_id}:${row.fuel_type}`;
+    if (!latestPriceByStationAndFuel.has(key)) {
+      latestPriceByStationAndFuel.set(key, Number(row.price));
     }
   }
-
-  const latestGasolina95ByStation = new Map<string, number>();
-  for (const row of gasolina95Prices ?? []) {
-    if (!latestGasolina95ByStation.has(row.station_id)) {
-      latestGasolina95ByStation.set(row.station_id, Number(row.price));
-    }
-  }
-
-  const stationsWithPrice = (stations ?? [])
-    .filter((station) => latestDieselByStation.has(station.id))
-    .map((station) => ({
-      id: station.id,
-      price: latestDieselByStation.get(station.id)!,
-    }));
-
-  const priceLevels = assignPriceLevels(stationsWithPrice);
 
   const mapStations: MapStation[] = (stations ?? []).map((station) => ({
     id: station.id,
@@ -92,9 +43,12 @@ export default async function MapPage() {
     address: station.address,
     latitude: station.latitude,
     longitude: station.longitude,
-    price: latestDieselByStation.get(station.id) ?? null,
-    price95: latestGasolina95ByStation.get(station.id) ?? null,
-    level: priceLevels.get(station.id) ?? null,
+    prices: Object.fromEntries(
+      DRIVING_FUEL_TYPES.map((fuelType) => [
+        fuelType,
+        latestPriceByStationAndFuel.get(`${station.id}:${fuelType}`) ?? null,
+      ])
+    ) as Record<FuelType, number | null>,
   }));
 
   return (
@@ -106,14 +60,12 @@ export default async function MapPage() {
         <ThemeToggle />
       </div>
 
-      {(stationsError || pricesError || gasolina95Error) && (
+      {(stationsError || pricesError) && (
         <div className="mx-4 mt-4 space-y-1 text-sm text-red">
           {stationsError && (
             <p>{friendlyErrorMessage(stationsError.message)}</p>
           )}
-          {(pricesError || gasolina95Error) && (
-            <p>{friendlyErrorMessage((pricesError ?? gasolina95Error)?.message)}</p>
-          )}
+          {pricesError && <p>{friendlyErrorMessage(pricesError.message)}</p>}
         </div>
       )}
 
