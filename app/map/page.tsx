@@ -22,14 +22,28 @@ export default async function MapPage() {
     .select('id, name, brand, address, latitude, longitude')
     .order('name');
 
-  const { data: fuelPrices, error: pricesError } = await supabase
-    .from('fuel_prices')
-    .select('station_id, fuel_type, price')
-    .in('fuel_type', DRIVING_FUEL_TYPES)
-    .order('reported_at', { ascending: false });
+  const fuelPrices: { station_id: string; fuel_type: string; price: number }[] = [];
+  let pricesError: { message: string } | null = null;
+  const PAGE_SIZE = 1000;
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: page, error } = await supabase
+      .from('fuel_prices')
+      .select('station_id, fuel_type, price')
+      .in('fuel_type', DRIVING_FUEL_TYPES)
+      .order('reported_at', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      pricesError = error;
+      break;
+    }
+    if (!page || page.length === 0) break;
+    fuelPrices.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
 
   const latestPriceByStationAndFuel = new Map<string, number>();
-  for (const row of fuelPrices ?? []) {
+  for (const row of fuelPrices) {
     const key = `${row.station_id}:${row.fuel_type}`;
     if (!latestPriceByStationAndFuel.has(key)) {
       latestPriceByStationAndFuel.set(key, Number(row.price));
