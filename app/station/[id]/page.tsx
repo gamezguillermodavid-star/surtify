@@ -8,9 +8,13 @@ import FavoriteButton from '@/components/FavoriteButton';
 
 const FUEL_TYPES = [
   { key: 'diesel', label: 'Diésel' },
+  { key: 'gasoleo_premium', label: 'Gasóleo Premium' },
+  { key: 'gasoleo_b', label: 'Gasóleo B' },
   { key: 'gasolina_95', label: 'Gasolina 95' },
+  { key: 'gasolina_95_premium', label: 'Gasolina 95 Premium' },
   { key: 'gasolina_98', label: 'Gasolina 98' },
   { key: 'glp', label: 'GLP' },
+  { key: 'adblue', label: 'AdBlue' },
 ] as const;
 
 function formatPrice(price: number): string {
@@ -80,6 +84,7 @@ export default async function StationPage({
   });
 
   const pricesWithData = fuels
+    .filter((fuel) => fuel.key !== 'adblue')
     .map((fuel) => fuel.price)
     .filter((price): price is number => price != null);
 

@@ -5,13 +5,26 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { friendlyErrorMessage } from '@/lib/friendly-error';
 
-const FUEL_OPTIONS = ['Diésel', 'Gasolina 95', 'Gasolina 98', 'GLP'] as const;
+const FUEL_OPTIONS = [
+  'Diésel',
+  'Gasóleo Premium',
+  'Gasóleo B',
+  'Gasolina 95',
+  'Gasolina 95 Premium',
+  'Gasolina 98',
+  'GLP',
+  'AdBlue',
+] as const;
 
 const FUEL_TYPE_MAP: Record<(typeof FUEL_OPTIONS)[number], string> = {
   Diésel: 'diesel',
+  'Gasóleo Premium': 'gasoleo_premium',
+  'Gasóleo B': 'gasoleo_b',
   'Gasolina 95': 'gasolina_95',
+  'Gasolina 95 Premium': 'gasolina_95_premium',
   'Gasolina 98': 'gasolina_98',
   GLP: 'glp',
+  AdBlue: 'adblue',
 };
 
 export default function ReportPricePage({
@@ -26,9 +39,13 @@ export default function ReportPricePage({
   const [fuel, setFuel] = useState<(typeof FUEL_OPTIONS)[number]>(FUEL_OPTIONS[0]);
   const [prices, setPrices] = useState<Record<(typeof FUEL_OPTIONS)[number], string>>({
     Diésel: '',
+    'Gasóleo Premium': '',
+    'Gasóleo B': '',
     'Gasolina 95': '',
+    'Gasolina 95 Premium': '',
     'Gasolina 98': '',
     GLP: '',
+    AdBlue: '',
   });
   const [authChecking, setAuthChecking] = useState(true);
   const [loading, setLoading] = useState(false);

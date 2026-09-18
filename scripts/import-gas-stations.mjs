@@ -36,6 +36,10 @@ const FUEL_FIELD_MAP = {
   gasolina_95: 'Precio Gasolina 95 E5',
   gasolina_98: 'Precio Gasolina 98 E5',
   glp: 'Precio Gases licuados del petróleo',
+  adblue: 'Precio Adblue',
+  gasoleo_premium: 'Precio Gasoleo Premium',
+  gasolina_95_premium: 'Precio Gasolina 95 E5 Premium',
+  gasoleo_b: 'Precio Gasoleo B',
 };
 
 const CHUNK_SIZE = 500;

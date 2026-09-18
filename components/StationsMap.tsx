@@ -44,6 +44,13 @@ function formatPrice(price: number): string {
   });
 }
 
+function normalizeSearchText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
 const CLUSTER_LAYER: LayerProps = {
   id: 'clusters',
   type: 'circle',
@@ -104,6 +111,8 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
     longitude: number;
   } | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
@@ -193,6 +202,29 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
     });
   }, []);
 
+  const searchResults = useMemo(() => {
+    const query = normalizeSearchText(searchQuery.trim());
+    if (query.length < 2) return [];
+
+    return stations
+      .filter((station) => {
+        const haystack = normalizeSearchText(
+          `${station.name} ${station.brand ?? ''} ${station.address ?? ''}`
+        );
+        return haystack.includes(query);
+      })
+      .slice(0, 8);
+  }, [stations, searchQuery]);
+
+  const handleSelectSearchResult = useCallback(
+    (station: MapStation) => {
+      flyToStation(station);
+      setSearchQuery('');
+      setIsSearchFocused(false);
+    },
+    [flyToStation]
+  );
+
   const handleMapClick = useCallback((event: MapMouseEvent) => {
     const feature = event.features?.[0];
     if (!feature) {
@@ -232,6 +264,44 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
 
   return (
     <>
+    <div className="relative mx-4 mt-4">
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onFocus={() => setIsSearchFocused(true)}
+        onBlur={() => setTimeout(() => setIsSearchFocused(false), 150)}
+        placeholder="Buscar gasolinera por nombre, marca o dirección…"
+        className="w-full rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink outline-none placeholder:text-muted"
+      />
+      {isSearchFocused && searchQuery.trim().length >= 2 && (
+        <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-72 overflow-y-auto rounded-2xl border border-line bg-surface shadow-lg">
+          {searchResults.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-muted">
+              Sin resultados para &ldquo;{searchQuery}&rdquo;
+            </p>
+          ) : (
+            searchResults.map((station) => (
+              <button
+                key={station.id}
+                type="button"
+                onMouseDown={() => handleSelectSearchResult(station)}
+                className="block w-full border-b border-line px-4 py-2.5 text-left text-sm last:border-b-0"
+              >
+                <div className="font-display text-sm uppercase text-ink">
+                  {station.name}
+                  {station.brand ? ` · ${station.brand}` : ''}
+                </div>
+                {station.address && (
+                  <div className="text-xs text-muted">{station.address}</div>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+
     <div className="relative mx-4 mt-4 h-[360px] overflow-hidden rounded-2xl border border-line">
       <MapGL
         ref={mapRef}
