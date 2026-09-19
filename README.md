@@ -72,7 +72,7 @@ Lista completa y con contexto en [`CLAUDE.md`](./CLAUDE.md#pendiente-en-el-orden
 
 - Comparar el precio destacado de la ficha de gasolinera contra estaciones cercanas, no contra sí misma.
 - Criterio real de desbloqueo de insignias.
-- Ampliar la importación de datos a más provincias/comunidades autónomas.
+- Ampliar la importación de datos a más provincias/comunidades autónomas (Barcelona, Salamanca, Toledo y Alicante ya importadas).
 - Mover la escritura de XP a una función de servidor en vez de un `update` directo desde el cliente.
 - Decidir si se implementan zonas geográficas reales para "territorios".
 - Manejo de errores: `loading.tsx` por sección, revisar errores ignorados en misiones/perfil, try/catch de red.
