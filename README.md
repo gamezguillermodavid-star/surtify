@@ -4,8 +4,8 @@ Aplicación de código abierto para encontrar y compartir precios reales de gaso
 
 ## Qué hace
 
-- Mapa con la ubicación del usuario y la gasolinera más barata cercana
-- Buscador de gasolineras por nombre, marca o dirección
+- Mapa con cobertura nacional (España entera), la ubicación del usuario y la gasolinera más barata cercana; carga las gasolineras por la zona que estás viendo, no todas de golpe
+- Buscador de gasolineras por nombre, marca o dirección, con alcance nacional
 - Colorea el mapa (barato/medio/caro) por el combustible que elijas — diésel, gasolina 95, gasolina 98 o GLP — comparando cada gasolinera contra las que tiene cerca
 - Precios reportados y confirmados por la comunidad, sin depender de fuentes oficiales con retraso, para diésel, gasolina 95/98, GLP, AdBlue, gasóleo premium/B y gasolina 95 premium
 - Fichas de gasolinera con fotos, horario de apertura (real, importado del Ministerio), servicios (aseos, pago con tarjeta, tienda, aire y agua, lavado) y tiempo de espera, ambos reportados por la comunidad, y comentarios
@@ -72,7 +72,7 @@ Lista completa y con contexto en [`CLAUDE.md`](./CLAUDE.md#pendiente-en-el-orden
 
 - Comparar el precio destacado de la ficha de gasolinera contra estaciones cercanas, no contra sí misma.
 - Criterio real de desbloqueo de insignias.
-- Ampliar la importación de datos a más provincias/comunidades autónomas (Barcelona, Salamanca, Toledo y Alicante ya importadas).
+- ~~Ampliar la importación de datos a más provincias/comunidades autónomas~~ — cobertura nacional completa (52 provincias, ~11.500 gasolineras).
 - Mover la escritura de XP a una función de servidor en vez de un `update` directo desde el cliente.
 - Decidir si se implementan zonas geográficas reales para "territorios".
 - Manejo de errores: `loading.tsx` por sección, revisar errores ignorados en misiones/perfil, try/catch de red.

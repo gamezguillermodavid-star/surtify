@@ -1,11 +1,8 @@
 import BottomNav from '@/components/BottomNav';
 import ThemeToggle from '@/components/ThemeToggle';
-import StationsMap, { type FuelType, type MapStation } from '@/components/StationsMap';
+import StationsMap from '@/components/StationsMap';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { friendlyErrorMessage } from '@/lib/friendly-error';
-
-const DRIVING_FUEL_TYPES: FuelType[] = ['diesel', 'gasolina_95', 'gasolina_98', 'glp'];
 
 export default async function MapPage() {
   const supabase = createClient();
@@ -17,54 +14,6 @@ export default async function MapPage() {
     redirect('/auth');
   }
 
-  const { data: stations, error: stationsError } = await supabase
-    .from('gas_stations')
-    .select('id, name, brand, address, latitude, longitude')
-    .order('name');
-
-  const fuelPrices: { station_id: string; fuel_type: string; price: number }[] = [];
-  let pricesError: { message: string } | null = null;
-  const PAGE_SIZE = 1000;
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data: page, error } = await supabase
-      .from('fuel_prices')
-      .select('station_id, fuel_type, price')
-      .in('fuel_type', DRIVING_FUEL_TYPES)
-      .order('reported_at', { ascending: false })
-      .range(from, from + PAGE_SIZE - 1);
-
-    if (error) {
-      pricesError = error;
-      break;
-    }
-    if (!page || page.length === 0) break;
-    fuelPrices.push(...page);
-    if (page.length < PAGE_SIZE) break;
-  }
-
-  const latestPriceByStationAndFuel = new Map<string, number>();
-  for (const row of fuelPrices) {
-    const key = `${row.station_id}:${row.fuel_type}`;
-    if (!latestPriceByStationAndFuel.has(key)) {
-      latestPriceByStationAndFuel.set(key, Number(row.price));
-    }
-  }
-
-  const mapStations: MapStation[] = (stations ?? []).map((station) => ({
-    id: station.id,
-    name: station.name,
-    brand: station.brand,
-    address: station.address,
-    latitude: station.latitude,
-    longitude: station.longitude,
-    prices: Object.fromEntries(
-      DRIVING_FUEL_TYPES.map((fuelType) => [
-        fuelType,
-        latestPriceByStationAndFuel.get(`${station.id}:${fuelType}`) ?? null,
-      ])
-    ) as Record<FuelType, number | null>,
-  }));
-
   return (
     <main className="min-h-screen pb-24">
       <div className="flex items-center justify-between px-4 pt-4">
@@ -74,16 +23,7 @@ export default async function MapPage() {
         <ThemeToggle />
       </div>
 
-      {(stationsError || pricesError) && (
-        <div className="mx-4 mt-4 space-y-1 text-sm text-red">
-          {stationsError && (
-            <p>{friendlyErrorMessage(stationsError.message)}</p>
-          )}
-          {pricesError && <p>{friendlyErrorMessage(pricesError.message)}</p>}
-        </div>
-      )}
-
-      <StationsMap stations={mapStations} />
+      <StationsMap />
 
       <BottomNav />
     </main>

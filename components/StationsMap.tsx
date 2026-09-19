@@ -12,8 +12,10 @@ import MapGL, {
 import type { LayerProps, MapMouseEvent, MapRef } from 'react-map-gl/mapbox';
 import type { GeoJSONSource } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { createClient } from '@/lib/supabase/client';
 import { buildGoogleMapsUrl, buildWazeUrl } from '@/lib/directions';
 import { formatDistanceKm, haversineDistanceKm } from '@/lib/geo';
+import { friendlyErrorMessage } from '@/lib/friendly-error';
 
 const NEARBY_RADIUS_KM = 10;
 const FUEL_TYPE_STORAGE_KEY = 'surtify:map-fuel-type';
@@ -21,6 +23,8 @@ const FUEL_TYPE_STORAGE_KEY = 'surtify:map-fuel-type';
 export type PriceLevel = 'cheap' | 'mid' | 'high';
 
 export type FuelType = 'diesel' | 'gasolina_95' | 'gasolina_98' | 'glp';
+
+const DRIVING_FUEL_TYPES: FuelType[] = ['diesel', 'gasolina_95', 'gasolina_98', 'glp'];
 
 const FUEL_TYPE_OPTIONS: { key: FuelType; label: string }[] = [
   { key: 'diesel', label: 'Diésel' },
@@ -58,66 +62,115 @@ function formatPrice(price: number): string {
   });
 }
 
-function normalizeSearchText(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
+// Tamaño de celda de la rejilla usado para no comparar cada gasolinera
+// contra todas las demás del país al colorear el mapa (antes O(n²): con las
+// ~11.500 gasolineras de España el cálculo bloqueaba el hilo principal casi
+// 9 segundos). Con la rejilla, cada gasolinera solo se compara contra las
+// que caen en su celda y las 8 celdas vecinas, que siempre cubren el radio
+// NEARBY_RADIUS_KM.
+const KM_PER_LAT_DEGREE = 111.32;
+// cos(44°): la latitud peninsular más al norte (Galicia/Pirineos). Usarlo
+// como referencia fija y conservadora asegura que una celda de longitud
+// nunca sea más ancha que NEARBY_RADIUS_KM en ningún punto de España
+// (a menor cos(lat), más ancho en km un mismo grado de longitud).
+const LON_COS_REFERENCE = Math.cos((44 * Math.PI) / 180);
+const LAT_CELL_SIZE_DEG = NEARBY_RADIUS_KM / KM_PER_LAT_DEGREE;
+const LON_CELL_SIZE_DEG = NEARBY_RADIUS_KM / (KM_PER_LAT_DEGREE * LON_COS_REFERENCE);
+
+function cellIndexFor(latitude: number, longitude: number): [number, number] {
+  return [Math.floor(latitude / LAT_CELL_SIZE_DEG), Math.floor(longitude / LON_CELL_SIZE_DEG)];
 }
 
-const CLUSTER_LAYER: LayerProps = {
-  id: 'clusters',
-  type: 'circle',
-  source: 'stations',
-  filter: ['has', 'point_count'],
-  paint: {
-    'circle-color': ['step', ['get', 'point_count'], '#8aa0ff', 25, '#5c7cfa', 100, '#3b5bdb'],
-    'circle-radius': ['step', ['get', 'point_count'], 16, 25, 20, 100, 26],
-    'circle-stroke-width': 2,
-    'circle-stroke-color': '#ffffff',
-  },
-};
+function computePriceLevels(
+  stations: MapStation[],
+  fuelType: FuelType
+): Map<string, PriceLevel> {
+  const levels = new Map<string, PriceLevel>();
 
-const CLUSTER_COUNT_LAYER: LayerProps = {
-  id: 'cluster-count',
-  type: 'symbol',
-  source: 'stations',
-  filter: ['has', 'point_count'],
-  layout: {
-    'text-field': ['get', 'point_count_abbreviated'],
-    'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-    'text-size': 12,
-  },
-  paint: {
-    'text-color': '#ffffff',
-  },
-};
+  const withPrice = stations
+    .map((station) => ({ station, price: station.prices[fuelType] }))
+    .filter((entry): entry is { station: MapStation; price: number } => entry.price != null);
 
-const UNCLUSTERED_POINT_LAYER: LayerProps = {
-  id: 'unclustered-point',
-  type: 'circle',
-  source: 'stations',
-  filter: ['!', ['has', 'point_count']],
-  paint: {
-    'circle-color': [
-      'match',
-      ['get', 'level'],
-      'cheap',
-      LEVEL_COLOR.cheap,
-      'mid',
-      LEVEL_COLOR.mid,
-      'high',
-      LEVEL_COLOR.high,
-      '#9ca3af',
-    ],
-    'circle-radius': 9,
-    'circle-stroke-width': 2,
-    'circle-stroke-color': '#ffffff',
-  },
-};
+  if (withPrice.length === 0) return levels;
 
-export default function StationsMap({ stations }: { stations: MapStation[] }) {
+  const grid = new Map<string, typeof withPrice>();
+  for (const entry of withPrice) {
+    const [latIdx, lonIdx] = cellIndexFor(entry.station.latitude, entry.station.longitude);
+    const key = `${latIdx}:${lonIdx}`;
+    const bucket = grid.get(key);
+    if (bucket) bucket.push(entry);
+    else grid.set(key, [entry]);
+  }
+
+  for (const entry of withPrice) {
+    const [latIdx, lonIdx] = cellIndexFor(entry.station.latitude, entry.station.longitude);
+
+    let min = entry.price;
+    let max = entry.price;
+    for (let dLat = -1; dLat <= 1; dLat++) {
+      for (let dLon = -1; dLon <= 1; dLon++) {
+        const bucket = grid.get(`${latIdx + dLat}:${lonIdx + dLon}`);
+        if (!bucket) continue;
+        for (const other of bucket) {
+          if (other === entry) continue;
+          if (
+            haversineDistanceKm(
+              entry.station.latitude,
+              entry.station.longitude,
+              other.station.latitude,
+              other.station.longitude
+            ) <= NEARBY_RADIUS_KM
+          ) {
+            if (other.price < min) min = other.price;
+            if (other.price > max) max = other.price;
+          }
+        }
+      }
+    }
+
+    if (entry.price === min) levels.set(entry.station.id, 'cheap');
+    else if (entry.price === max) levels.set(entry.station.id, 'high');
+    else levels.set(entry.station.id, 'mid');
+  }
+
+  return levels;
+}
+
+type Bounds = { minLat: number; maxLat: number; minLng: number; maxLng: number };
+
+// Margen extra alrededor del viewport visible: evita tener que volver a
+// pedir datos al servidor por cada pequeño paneo del mapa.
+const BOUNDS_PADDING_FACTOR = 0.3;
+const STATIONS_PER_FETCH_LIMIT = 500;
+const PRICE_ID_CHUNK_SIZE = 100;
+const BOUNDS_FETCH_DEBOUNCE_MS = 350;
+const NEARBY_FETCH_RADIUS_KM = 20;
+
+function padBounds(bounds: Bounds): Bounds {
+  const latPad = (bounds.maxLat - bounds.minLat) * BOUNDS_PADDING_FACTOR;
+  const lngPad = (bounds.maxLng - bounds.minLng) * BOUNDS_PADDING_FACTOR;
+  return {
+    minLat: bounds.minLat - latPad,
+    maxLat: bounds.maxLat + latPad,
+    minLng: bounds.minLng - lngPad,
+    maxLng: bounds.maxLng + lngPad,
+  };
+}
+
+function boundsAroundPoint(latitude: number, longitude: number, radiusKm: number): Bounds {
+  const latPad = radiusKm / KM_PER_LAT_DEGREE;
+  const lngPad = radiusKm / (KM_PER_LAT_DEGREE * Math.cos((latitude * Math.PI) / 180));
+  return {
+    minLat: latitude - latPad,
+    maxLat: latitude + latPad,
+    minLng: longitude - lngPad,
+    maxLng: longitude + lngPad,
+  };
+}
+
+export default function StationsMap() {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const mapRef = useRef<MapRef>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [userPosition, setUserPosition] = useState<{
@@ -128,6 +181,10 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [selectedFuel, setSelectedFuel] = useState<FuelType>('diesel');
+  const [stationsById, setStationsById] = useState<Map<string, MapStation>>(new Map());
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [searchResults, setSearchResults] = useState<MapStation[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(FUEL_TYPE_STORAGE_KEY);
@@ -157,48 +214,129 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
     );
   }, []);
 
-  const stationsById = useMemo(() => {
-    const map = new Map<string, MapStation>();
-    for (const station of stations) map.set(station.id, station);
-    return map;
-  }, [stations]);
+  const mergeStations = useCallback(
+    (rawStations: Pick<MapStation, 'id' | 'name' | 'brand' | 'address' | 'latitude' | 'longitude'>[]) => {
+      if (rawStations.length === 0) return;
+      const ids = rawStations.map((s) => s.id);
+      const priceRowsPromise = (async () => {
+        const priceRows: { station_id: string; fuel_type: string; price: number }[] = [];
+        for (let i = 0; i < ids.length; i += PRICE_ID_CHUNK_SIZE) {
+          const chunk = ids.slice(i, i + PRICE_ID_CHUNK_SIZE);
+          const { data } = await supabase
+            .from('fuel_prices')
+            .select('station_id, fuel_type, price')
+            .in('station_id', chunk)
+            .in('fuel_type', DRIVING_FUEL_TYPES)
+            .order('reported_at', { ascending: false });
+          if (data) priceRows.push(...data);
+        }
+        return priceRows;
+      })();
+
+      return priceRowsPromise.then((priceRows) => {
+        const latestByKey = new Map<string, number>();
+        for (const row of priceRows) {
+          const key = `${row.station_id}:${row.fuel_type}`;
+          if (!latestByKey.has(key)) latestByKey.set(key, Number(row.price));
+        }
+
+        setStationsById((prev) => {
+          const next = new Map(prev);
+          for (const station of rawStations) {
+            next.set(station.id, {
+              id: station.id,
+              name: station.name,
+              brand: station.brand,
+              address: station.address,
+              latitude: station.latitude,
+              longitude: station.longitude,
+              prices: Object.fromEntries(
+                DRIVING_FUEL_TYPES.map((fuelType) => [
+                  fuelType,
+                  latestByKey.get(`${station.id}:${fuelType}`) ?? null,
+                ])
+              ) as Record<FuelType, number | null>,
+            });
+          }
+          return next;
+        });
+      });
+    },
+    [supabase]
+  );
+
+  const loadStationsInBounds = useCallback(
+    async (bounds: Bounds) => {
+      const { data, error } = await supabase
+        .from('gas_stations')
+        .select('id, name, brand, address, latitude, longitude')
+        .gte('latitude', bounds.minLat)
+        .lte('latitude', bounds.maxLat)
+        .gte('longitude', bounds.minLng)
+        .lte('longitude', bounds.maxLng)
+        .limit(STATIONS_PER_FETCH_LIMIT);
+
+      if (error) {
+        setLoadError(friendlyErrorMessage(error.message));
+        return;
+      }
+      if (!data) return;
+      setLoadError(null);
+      await mergeStations(data);
+    },
+    [supabase, mergeStations]
+  );
+
+  const boundsFetchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleBoundsSettled = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    const mapBounds = map?.getBounds();
+    if (!mapBounds) return;
+
+    const bounds = padBounds({
+      minLat: mapBounds.getSouth(),
+      maxLat: mapBounds.getNorth(),
+      minLng: mapBounds.getWest(),
+      maxLng: mapBounds.getEast(),
+    });
+
+    if (boundsFetchTimeout.current) clearTimeout(boundsFetchTimeout.current);
+    boundsFetchTimeout.current = setTimeout(() => {
+      loadStationsInBounds(bounds).finally(() => setHasLoadedOnce(true));
+    }, BOUNDS_FETCH_DEBOUNCE_MS);
+  }, [loadStationsInBounds]);
+
+  useEffect(
+    () => () => {
+      if (boundsFetchTimeout.current) clearTimeout(boundsFetchTimeout.current);
+    },
+    []
+  );
+
+  // Además del viewport visible, cargamos siempre un radio fijo alrededor
+  // del usuario: así "la más barata cerca de ti" tiene datos fiables aunque
+  // el usuario esté viendo el mapa con más zoom del que cubre ese radio.
+  useEffect(() => {
+    if (!userPosition) return;
+    loadStationsInBounds(
+      boundsAroundPoint(userPosition.latitude, userPosition.longitude, NEARBY_FETCH_RADIUS_KM)
+    );
+    mapRef.current?.easeTo({
+      center: [userPosition.longitude, userPosition.latitude],
+      zoom: 13,
+      duration: 800,
+    });
+  }, [userPosition, loadStationsInBounds]);
+
+  const stations = useMemo(() => Array.from(stationsById.values()), [stationsById]);
 
   const selectedStation = selectedId ? stationsById.get(selectedId) ?? null : null;
 
-  const priceLevelByStationId = useMemo(() => {
-    const levels = new Map<string, PriceLevel>();
-
-    const withPrice = stations
-      .map((station) => ({ station, price: station.prices[selectedFuel] }))
-      .filter(
-        (entry): entry is { station: MapStation; price: number } => entry.price != null
-      );
-
-    for (const entry of withPrice) {
-      const nearby = withPrice.filter(
-        (other) =>
-          haversineDistanceKm(
-            entry.station.latitude,
-            entry.station.longitude,
-            other.station.latitude,
-            other.station.longitude
-          ) <= NEARBY_RADIUS_KM
-      );
-
-      const min = Math.min(...nearby.map((n) => n.price));
-      const max = Math.max(...nearby.map((n) => n.price));
-
-      if (entry.price === min) {
-        levels.set(entry.station.id, 'cheap');
-      } else if (entry.price === max) {
-        levels.set(entry.station.id, 'high');
-      } else {
-        levels.set(entry.station.id, 'mid');
-      }
-    }
-
-    return levels;
-  }, [stations, selectedFuel]);
+  const priceLevelByStationId = useMemo(
+    () => computePriceLevels(stations, selectedFuel),
+    [stations, selectedFuel]
+  );
 
   const geojson = useMemo(
     () => ({
@@ -218,14 +356,10 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
     [stations, priceLevelByStationId]
   );
 
-  const initialViewState = useMemo(() => {
-    if (stations.length === 0) {
-      return { latitude: 41.3598, longitude: 2.0997, zoom: 11 };
-    }
-    const avgLat = stations.reduce((sum, s) => sum + s.latitude, 0) / stations.length;
-    const avgLng = stations.reduce((sum, s) => sum + s.longitude, 0) / stations.length;
-    return { latitude: avgLat, longitude: avgLng, zoom: 11 };
-  }, [stations]);
+  const initialViewState = useMemo(
+    () => ({ latitude: 40.4168, longitude: -3.7038, zoom: 5.5 }),
+    []
+  );
 
   const nearestCheapest = useMemo(() => {
     if (!userPosition) return null;
@@ -267,27 +401,70 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
     });
   }, []);
 
-  const searchResults = useMemo(() => {
-    const query = normalizeSearchText(searchQuery.trim());
-    if (query.length < 2) return [];
+  // Buscador: consulta directamente a Supabase (lectura pública, sin
+  // depender de las gasolineras ya cargadas en el viewport) para poder
+  // encontrar una gasolinera en cualquier punto de España aunque no esté
+  // a la vista en el mapa.
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    return stations
-      .filter((station) => {
-        const haystack = normalizeSearchText(
-          `${station.name} ${station.brand ?? ''} ${station.address ?? ''}`
-        );
-        return haystack.includes(query);
-      })
-      .slice(0, 8);
-  }, [stations, searchQuery]);
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(async () => {
+      // Las comas y paréntesis rompen la sintaxis del filtro .or() de PostgREST.
+      const safeQuery = query.replace(/[,()]/g, ' ').trim();
+      if (safeQuery.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+      const { data } = await supabase
+        .from('gas_stations')
+        .select('id, name, brand, address, latitude, longitude')
+        .or(`name.ilike.%${safeQuery}%,brand.ilike.%${safeQuery}%,address.ilike.%${safeQuery}%`)
+        .limit(8);
+
+      if (!data) {
+        setSearchResults([]);
+        return;
+      }
+      await mergeStations(data);
+      setSearchResults(
+        data.map((station) => ({
+          id: station.id,
+          name: station.name,
+          brand: station.brand,
+          address: station.address,
+          latitude: station.latitude,
+          longitude: station.longitude,
+          prices: stationsById.get(station.id)?.prices ?? {
+            diesel: null,
+            gasolina_95: null,
+            gasolina_98: null,
+            glp: null,
+          },
+        }))
+      );
+    }, 300);
+
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, supabase, mergeStations]);
 
   const handleSelectSearchResult = useCallback(
     (station: MapStation) => {
-      flyToStation(station);
+      const fullStation = stationsById.get(station.id) ?? station;
+      flyToStation(fullStation);
       setSearchQuery('');
       setIsSearchFocused(false);
     },
-    [flyToStation]
+    [flyToStation, stationsById]
   );
 
   const handleMapClick = useCallback((event: MapMouseEvent) => {
@@ -339,6 +516,9 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
         placeholder="Buscar gasolinera por nombre, marca o dirección…"
         className="w-full rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink outline-none placeholder:text-muted"
       />
+      {loadError && (
+        <p className="mt-2 text-sm text-red">{loadError}</p>
+      )}
       {isSearchFocused && searchQuery.trim().length >= 2 && (
         <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-72 overflow-y-auto rounded-2xl border border-line bg-surface shadow-lg">
           {searchResults.length === 0 ? (
@@ -386,6 +566,11 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
     </div>
 
     <div className="relative mx-4 mt-3 h-[360px] overflow-hidden rounded-2xl border border-line">
+      {!hasLoadedOnce && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-surface/70 text-sm text-muted">
+          Cargando gasolineras…
+        </div>
+      )}
       <MapGL
         ref={mapRef}
         mapboxAccessToken={token}
@@ -394,6 +579,8 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={['clusters', 'unclustered-point']}
         onClick={handleMapClick}
+        onLoad={handleBoundsSettled}
+        onMoveEnd={handleBoundsSettled}
       >
         <NavigationControl position="top-right" showCompass={false} />
         <GeolocateControl
@@ -498,3 +685,54 @@ export default function StationsMap({ stations }: { stations: MapStation[] }) {
     </>
   );
 }
+
+const CLUSTER_LAYER: LayerProps = {
+  id: 'clusters',
+  type: 'circle',
+  source: 'stations',
+  filter: ['has', 'point_count'],
+  paint: {
+    'circle-color': ['step', ['get', 'point_count'], '#8aa0ff', 25, '#5c7cfa', 100, '#3b5bdb'],
+    'circle-radius': ['step', ['get', 'point_count'], 16, 25, 20, 100, 26],
+    'circle-stroke-width': 2,
+    'circle-stroke-color': '#ffffff',
+  },
+};
+
+const CLUSTER_COUNT_LAYER: LayerProps = {
+  id: 'cluster-count',
+  type: 'symbol',
+  source: 'stations',
+  filter: ['has', 'point_count'],
+  layout: {
+    'text-field': ['get', 'point_count_abbreviated'],
+    'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+    'text-size': 12,
+  },
+  paint: {
+    'text-color': '#ffffff',
+  },
+};
+
+const UNCLUSTERED_POINT_LAYER: LayerProps = {
+  id: 'unclustered-point',
+  type: 'circle',
+  source: 'stations',
+  filter: ['!', ['has', 'point_count']],
+  paint: {
+    'circle-color': [
+      'match',
+      ['get', 'level'],
+      'cheap',
+      LEVEL_COLOR.cheap,
+      'mid',
+      LEVEL_COLOR.mid,
+      'high',
+      LEVEL_COLOR.high,
+      '#9ca3af',
+    ],
+    'circle-radius': 9,
+    'circle-stroke-width': 2,
+    'circle-stroke-color': '#ffffff',
+  },
+};
