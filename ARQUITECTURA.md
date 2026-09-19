@@ -20,6 +20,8 @@ El proyecto es de código abierto porque queremos que cualquier desarrollador pu
 - Ficha de gasolinera con precio actual, distancia, horario de apertura, servicios básicos y tiempo de espera, reportados por la comunidad
 - Sistema de puntos y niveles (gamificación básica)
 
+*(Cobertura de datos: alcanzada la meta de país completo — las 52 provincias de España importadas, ~11.500 gasolineras reales con precios oficiales del Ministerio. Ver `CLAUDE.md` para el detalle de la importación y de cómo se rediseñó la carga del mapa para aguantar ese volumen.)*
+
 **Fase 2 — Comunidad avanzada**
 - Confirmación de precios por otros usuarios (voto arriba/abajo)
 - Peso de voto según reputación del usuario
@@ -37,15 +39,17 @@ El proyecto es de código abierto porque queremos que cualquier desarrollador pu
 | Capa | Tecnología |
 |---|---|
 | Frontend | Next.js (App Router) + TypeScript |
-| Estilos | Tailwind CSS + shadcn/ui |
+| Estilos | Tailwind CSS |
 | Backend / base de datos | Supabase (PostgreSQL + Row Level Security) |
-| Autenticación | Supabase Auth (OTP por email) |
-| Mapas | Mapbox GL JS o Google Maps API (a decidir según coste a escala) |
+| Autenticación | Supabase Auth |
+| Mapas | Mapbox GL JS (vía `react-map-gl`) |
 | Pagos (fase 3) | Stripe |
 | Hosting | Vercel |
-| CI/CD | GitHub Actions |
+| CI/CD | — |
 
 Se descarta Docker para mantener el despliegue simple mientras el proyecto está en fases tempranas.
+
+*(Decisiones ya tomadas en la práctica, no solo planeadas: se descartó shadcn/ui pese a estar aquí originalmente; entre Mapbox y Google Maps se eligió Mapbox; el hosting es Vercel desde el principio, no el VPS con Coolify que planteaba una versión anterior de este documento (ver más abajo, sección 11); no hay CI/CD ni Docker todavía. Ver `CLAUDE.md` para el estado real completo.)*
 
 ## 4. Modelo de datos (resumen)
 
@@ -71,6 +75,8 @@ No se almacena histórico de precios de cara al usuario (solo el precio vigente)
 ## 5. Autenticación
 
 El registro se hace exclusivamente por email, sin contraseña: el usuario recibe un código OTP de un solo uso que confirma su identidad. Esto reduce fricción en el alta y evita la gestión de contraseñas, apoyándose en Supabase Auth. Tras la verificación inicial, la sesión queda guardada en el dispositivo (token de sesión de Supabase Auth) y el usuario entra directamente en aperturas posteriores, sin repetir el OTP salvo que cierre sesión, caduque el token o entre desde un dispositivo nuevo.
+
+*(No es lo que hay construido: `app/auth/page.tsx` implementa registro e inicio de sesión clásicos con email y contraseña, no OTP. Es una desviación importante del plan, no un ajuste menor — pasar a OTP de verdad sería un cambio de flujo de autenticación completo. Ver `CLAUDE.md` para el detalle.)*
 
 ## 6. Sistema de gamificación
 
@@ -105,7 +111,7 @@ Tema **claro por defecto**, con opción de cambiar a tema oscuro desde el perfil
 
 **Dominio propio**: recomendado desde el inicio del proyecto, aunque el nombre de la app aún esté por definir. Da más credibilidad al manifest de la PWA y a los correos de verificación OTP, y evita depender de un subdominio de la plataforma de hosting.
 
-**Hosting**: VPS propio con Coolify mientras el proyecto no tenga tráfico relevante, siguiendo el mismo criterio aplicado al resto de proyectos personales (NitidoHome, Convitia, app de finanzas). Coolify despliega la aplicación empaquetándola en un contenedor Docker: Next.js se ejecuta dentro de ese contenedor, sin diferencia de código respecto a un despliegue en Vercel. Si el proyecto crece de forma significativa, se traslada a Vercel sin cambios en la aplicación.
+**Hosting**: se planteó originalmente un VPS propio con Coolify mientras el proyecto no tuviera tráfico relevante, siguiendo el mismo criterio aplicado al resto de proyectos personales (NitidoHome, Convitia, app de finanzas), con Vercel como destino si el proyecto crecía. En la práctica se empezó directamente en **Vercel** (`surtify-b3wb.vercel.app`), sin pasar por el VPS. Next.js se despliega ahí tal cual, sin contenedor Docker.
 
 ## 12. Licencia y contribución
 
