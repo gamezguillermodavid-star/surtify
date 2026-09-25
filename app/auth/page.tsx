@@ -1,11 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { friendlyErrorMessage } from '@/lib/friendly-error';
 
 type Mode = 'register' | 'login';
+
+// Marca en el dispositivo de que desde aquí ya se ha entrado alguna vez:
+// en ese caso se muestra "Iniciar sesión" en vez de "Crear cuenta".
+const HAS_ACCOUNT_STORAGE_KEY = 'surtify:has-account';
+
+function rememberHasAccount() {
+  try {
+    localStorage.setItem(HAS_ACCOUNT_STORAGE_KEY, '1');
+  } catch {
+    // almacenamiento no disponible (modo privado): no pasa nada
+  }
+}
 
 const inputClassName =
   'rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink';
@@ -21,6 +33,14 @@ export default function AuthPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(HAS_ACCOUNT_STORAGE_KEY)) setMode('login');
+    } catch {
+      // almacenamiento no disponible: se queda en registro
+    }
+  }, []);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -71,6 +91,7 @@ export default function AuthPage() {
     }
 
     setLoading(false);
+    rememberHasAccount();
     router.push('/map');
   }
 
@@ -91,6 +112,7 @@ export default function AuthPage() {
       return;
     }
 
+    rememberHasAccount();
     router.push('/map');
   }
 

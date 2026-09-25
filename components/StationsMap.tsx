@@ -145,6 +145,9 @@ const STATIONS_PER_FETCH_LIMIT = 500;
 const PRICE_ID_CHUNK_SIZE = 100;
 const BOUNDS_FETCH_DEBOUNCE_MS = 350;
 const NEARBY_FETCH_RADIUS_KM = 20;
+const SEARCH_RESULTS_LIMIT = 8;
+const SEARCH_NEARBY_RADIUS_KM = 50;
+const SEARCH_NEARBY_FETCH_LIMIT = 100;
 
 function padBounds(bounds: Bounds): Bounds {
   const latPad = (bounds.maxLat - bounds.minLat) * BOUNDS_PADDING_FACTOR;
@@ -406,6 +409,7 @@ export default function StationsMap() {
   // encontrar una gasolinera en cualquier punto de España aunque no esté
   // a la vista en el mapa.
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequestIdRef = useRef(0);
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -422,17 +426,58 @@ export default function StationsMap() {
         setSearchResults([]);
         return;
       }
-      const { data } = await supabase
-        .from('gas_stations')
-        .select('id, name, brand, address, latitude, longitude')
-        .or(`name.ilike.%${safeQuery}%,brand.ilike.%${safeQuery}%,address.ilike.%${safeQuery}%`)
-        .limit(8);
+      const requestId = ++searchRequestIdRef.current;
+      const textFilter = `name.ilike.%${safeQuery}%,brand.ilike.%${safeQuery}%,address.ilike.%${safeQuery}%`;
+      const baseQuery = () =>
+        supabase
+          .from('gas_stations')
+          .select('id, name, brand, address, latitude, longitude')
+          .or(textFilter);
 
-      if (!data) {
+      // Con ubicación, además de la búsqueda nacional se buscan coincidencias
+      // en un radio alrededor del usuario: una marca como "Repsol" tiene
+      // cientos de gasolineras y un limit(8) sin orden devolvía 8 cualquiera
+      // del país. Luego se ordena todo por distancia al usuario.
+      const nearbyBounds = userPosition
+        ? boundsAroundPoint(userPosition.latitude, userPosition.longitude, SEARCH_NEARBY_RADIUS_KM)
+        : null;
+      const [nationalResult, nearbyResult] = await Promise.all([
+        baseQuery().limit(SEARCH_RESULTS_LIMIT),
+        nearbyBounds
+          ? baseQuery()
+              .gte('latitude', nearbyBounds.minLat)
+              .lte('latitude', nearbyBounds.maxLat)
+              .gte('longitude', nearbyBounds.minLng)
+              .lte('longitude', nearbyBounds.maxLng)
+              .limit(SEARCH_NEARBY_FETCH_LIMIT)
+          : Promise.resolve({ data: null }),
+      ]);
+      if (requestId !== searchRequestIdRef.current) return;
+
+      const byId = new Map<string, NonNullable<typeof nationalResult.data>[number]>();
+      for (const station of [...(nearbyResult.data ?? []), ...(nationalResult.data ?? [])]) {
+        byId.set(station.id, station);
+      }
+      let found = Array.from(byId.values());
+      if (userPosition) {
+        const distanceTo = (station: { latitude: number; longitude: number }) =>
+          haversineDistanceKm(
+            userPosition.latitude,
+            userPosition.longitude,
+            station.latitude,
+            station.longitude
+          );
+        found.sort((a, b) => distanceTo(a) - distanceTo(b));
+      }
+      found = found.slice(0, SEARCH_RESULTS_LIMIT);
+
+      if (found.length === 0) {
         setSearchResults([]);
         return;
       }
+      const data = found;
       await mergeStations(data);
+      if (requestId !== searchRequestIdRef.current) return;
       setSearchResults(
         data.map((station) => ({
           id: station.id,
@@ -455,7 +500,7 @@ export default function StationsMap() {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, supabase, mergeStations]);
+  }, [searchQuery, supabase, mergeStations, userPosition]);
 
   const handleSelectSearchResult = useCallback(
     (station: MapStation) => {
@@ -537,8 +582,20 @@ export default function StationsMap() {
                   {station.name}
                   {station.brand ? ` · ${station.brand}` : ''}
                 </div>
-                {station.address && (
-                  <div className="text-xs text-muted">{station.address}</div>
+                {(station.address || userPosition) && (
+                  <div className="text-xs text-muted">
+                    {userPosition &&
+                      formatDistanceKm(
+                        haversineDistanceKm(
+                          userPosition.latitude,
+                          userPosition.longitude,
+                          station.latitude,
+                          station.longitude
+                        )
+                      )}
+                    {userPosition && station.address ? ' · ' : ''}
+                    {station.address}
+                  </div>
                 )}
               </button>
             ))
