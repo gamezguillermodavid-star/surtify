@@ -225,6 +225,16 @@ export default function ReportPricePage({
         })),
         { onConflict: 'station_id,user_id,service', ignoreDuplicates: true }
       );
+
+      void fetch('/api/notify-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stationId: params.id,
+          kind: 'service',
+          services: selectedServices,
+        }),
+      }).catch(() => {});
     }
 
     if (waitLevel) {
@@ -233,6 +243,16 @@ export default function ReportPricePage({
         user_id: user.id,
         level: waitLevel,
       });
+
+      void fetch('/api/notify-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stationId: params.id,
+          kind: 'wait',
+          level: waitLevel,
+        }),
+      }).catch(() => {});
     }
 
     const xpAwarded = photoUploaded ? 3 : 1;
@@ -276,11 +296,12 @@ export default function ReportPricePage({
       return;
     }
 
-    void fetch('/api/notify-favorites', {
+    void fetch('/api/notify-report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         stationId: params.id,
+        kind: 'price',
         fuelType: FUEL_TYPE_MAP[fuel],
         price: parsedPrice,
         hasPhoto: photoUploaded,

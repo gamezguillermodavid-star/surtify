@@ -1,6 +1,7 @@
 import BottomNav from '@/components/BottomNav';
 import DriverTypeSelector from '@/components/DriverTypeSelector';
 import FeedbackForm from '@/components/FeedbackForm';
+import NotificationSettings from '@/components/NotificationSettings';
 import SignOutButton from '@/components/SignOutButton';
 import { createClient } from '@/lib/supabase/server';
 import { getLevelProgress } from '@/lib/levels';
@@ -24,7 +25,9 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('display_name, total_xp, streak_count, driver_type')
+    .select(
+      'display_name, total_xp, streak_count, driver_type, notify_favorites, notify_zone'
+    )
     .eq('id', user.id)
     .single();
 
@@ -146,6 +149,16 @@ export default async function ProfilePage() {
             {b}
           </div>
         ))}
+      </div>
+
+      <div className="mt-6 px-5">
+        <div className="mb-2 font-display text-xs uppercase tracking-wide text-muted">
+          Notificaciones
+        </div>
+        <NotificationSettings
+          initialNotifyFavorites={profile?.notify_favorites ?? true}
+          initialNotifyZone={profile?.notify_zone ?? false}
+        />
       </div>
 
       <div className="mt-6 px-5">

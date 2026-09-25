@@ -201,21 +201,50 @@ export default function StationsMap() {
     localStorage.setItem(FUEL_TYPE_STORAGE_KEY, fuel);
   }, []);
 
+  const refreshZoneLocation = useCallback(
+    async (coords: { latitude: number; longitude: number }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('users')
+        .select('notify_zone')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile?.notify_zone) return;
+
+      await supabase
+        .from('users')
+        .update({
+          last_latitude: coords.latitude,
+          last_longitude: coords.longitude,
+          last_location_updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+    },
+    [supabase]
+  );
+
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setUserPosition({
+        const coords = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-        });
+        };
+        setUserPosition(coords);
+        refreshZoneLocation(coords).catch(() => {});
       },
       () => {
         setLocationDenied(true);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, []);
+  }, [refreshZoneLocation]);
 
   const mergeStations = useCallback(
     (rawStations: Pick<MapStation, 'id' | 'name' | 'brand' | 'address' | 'latitude' | 'longitude'>[]) => {
