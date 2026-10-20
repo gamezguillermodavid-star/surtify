@@ -1,6 +1,6 @@
-# Surtify — Arquitectura del proyecto
+# Surtify: Arquitectura del proyecto
 
-Surtify es una aplicación de código abierto para encontrar y compartir precios reales de gasolineras en España, construida por una comunidad de usuarios en tiempo real, sin depender únicamente de fuentes oficiales.
+Surtify es una aplicación para encontrar y compartir precios reales de gasolineras en España, construida por una comunidad de usuarios en tiempo real, sin depender únicamente de fuentes oficiales.
 
 Este documento describe la arquitectura técnica y de producto del proyecto. Es un documento vivo: se actualizará a medida que el proyecto avance.
 
@@ -8,11 +8,11 @@ Este documento describe la arquitectura técnica y de producto del proyecto. Es 
 
 Las aplicaciones de precios de carburante existentes dependen de datos oficiales que se actualizan con retraso o de forma incompleta. Surtify propone un modelo distinto: una comunidad activa, con incentivos claros, que mantiene los precios actualizados casi en tiempo real, además de aportar contexto que ningún dato oficial ofrece (fotos del cartel de precios, servicios disponibles, estado real de la gasolinera).
 
-El proyecto es de código abierto porque queremos que cualquier desarrollador pueda auditar cómo se calculan los precios de confianza, proponer mejoras, y porque creemos que la transparencia es parte del valor que ofrecemos al usuario final.
+El proyecto es propiedad exclusiva de su autor. El valor está en la comunidad y en los datos que genera, por eso el código y los datos se mantienen bajo control del autor (ver sección 12).
 
 ## 2. Alcance por fases
 
-**Fase 1 — MVP**
+**Fase 1: MVP**
 - Registro por email con confirmación OTP
 - Mapa con geolocalización del usuario y de gasolineras
 - Buscador de gasolineras por nombre, marca o dirección (para encontrar la gasolinera habitual del usuario aunque no esté a la vista en el mapa)
@@ -20,17 +20,17 @@ El proyecto es de código abierto porque queremos que cualquier desarrollador pu
 - Ficha de gasolinera con precio actual, distancia, horario de apertura, servicios básicos y tiempo de espera, reportados por la comunidad
 - Sistema de puntos y niveles (gamificación básica)
 
-*(Cobertura de datos: alcanzada la meta de país completo — las 52 provincias de España importadas, ~11.500 gasolineras reales con precios oficiales del Ministerio. Ver `CLAUDE.md` para el detalle de la importación y de cómo se rediseñó la carga del mapa para aguantar ese volumen.)*
+*(Cobertura de datos: alcanzada la meta de país completo. Las 52 provincias de España importadas, ~11.500 gasolineras reales con precios oficiales del Ministerio. Ver `CLAUDE.md` para el detalle de la importación y de cómo se rediseñó la carga del mapa para aguantar ese volumen.)*
 
-**Fase 2 — Comunidad avanzada**
+**Fase 2: Comunidad avanzada**
 - Confirmación de precios por otros usuarios (voto arriba/abajo)
 - Peso de voto según reputación del usuario
 - Fotos del cartel de precios y de las instalaciones
 - Comentarios por gasolinera
 - Rachas, misiones semanales y "territorios" por zona
-- API pública de datos agregados (open data)
+- API pública de datos agregados, bajo condiciones de uso definidas por el autor
 
-**Fase 3 — Alianzas y recompensas reales**
+**Fase 3: Alianzas y recompensas reales**
 - Acuerdos con gasolineras o marcas para canjear puntos por descuentos
 - Programa de fidelización basado en el historial de aportes de cada usuario
 
@@ -45,7 +45,7 @@ El proyecto es de código abierto porque queremos que cualquier desarrollador pu
 | Mapas | Mapbox GL JS (vía `react-map-gl`) |
 | Pagos (fase 3) | Stripe |
 | Hosting | Vercel |
-| CI/CD | — |
+| CI/CD | Pendiente |
 
 Se descarta Docker para mantener el despliegue simple mientras el proyecto está en fases tempranas.
 
@@ -55,20 +55,20 @@ Se descarta Docker para mantener el despliegue simple mientras el proyecto está
 
 Tablas principales en PostgreSQL:
 
-- `users` — perfil del usuario, nivel, XP total, racha actual (por aportes, no por días), reputación, tipo de perfil (particular o conductor profesional)
-- `gas_stations` — ubicación, marca, horario de apertura
-- `fuel_prices` — precio actual por gasolinera y tipo de combustible (diésel, gasolina 95/98, GLP, AdBlue, gasóleo premium/B, gasolina 95 premium), con marca de tiempo del último reporte
-- `price_confirmations` — votos arriba o abajo sobre un precio reportado, con el peso calculado según la reputación de quien vota
-- `station_photos` — fotos subidas por usuarios, asociadas a una gasolinera
-- `service_reports` — servicios disponibles (aseos, pago con tarjeta, tienda, aire y agua, lavado) que cada usuario confirma haber visto en una gasolinera; un servicio se muestra en la ficha en cuanto al menos un usuario lo ha reportado
-- `wait_time_reports` — nivel de espera (sin espera / espera normal / mucha espera) que un usuario reporta para una gasolinera en un momento dado; la ficha muestra el reporte más reciente
-- `comments` — comentarios de usuarios sobre una gasolinera
-- `xp_events` — histórico de eventos que otorgan puntos (para calcular niveles y rachas sin tener que reconstruirlos cada vez)
-- `missions` — misiones activas y su definición, con periodo (semanal o mensual) y perfil al que van dirigidas
-- `user_missions` — progreso de cada usuario en las misiones activas
-- `territories` — zona geográfica y usuario con más aportes recientes en ella
-- `favorites` — gasolineras que un usuario marca como favoritas
-- `push_subscriptions` — suscripciones de notificaciones push (Web Push) por usuario y dispositivo
+- `users`: perfil del usuario, nivel, XP total, racha actual (por aportes, no por días), reputación, tipo de perfil (particular o conductor profesional)
+- `gas_stations`: ubicación, marca, horario de apertura
+- `fuel_prices`: precio actual por gasolinera y tipo de combustible (diésel, gasolina 95/98, GLP, AdBlue, gasóleo premium/B, gasolina 95 premium), con marca de tiempo del último reporte
+- `price_confirmations`: votos arriba o abajo sobre un precio reportado, con el peso calculado según la reputación de quien vota
+- `station_photos`: fotos subidas por usuarios, asociadas a una gasolinera
+- `service_reports`: servicios disponibles (aseos, pago con tarjeta, tienda, aire y agua, lavado) que cada usuario confirma haber visto en una gasolinera; un servicio se muestra en la ficha en cuanto al menos un usuario lo ha reportado
+- `wait_time_reports`: nivel de espera (sin espera / espera normal / mucha espera) que un usuario reporta para una gasolinera en un momento dado; la ficha muestra el reporte más reciente
+- `comments`: comentarios de usuarios sobre una gasolinera
+- `xp_events`: histórico de eventos que otorgan puntos (para calcular niveles y rachas sin tener que reconstruirlos cada vez)
+- `missions`: misiones activas y su definición, con periodo (semanal o mensual) y perfil al que van dirigidas
+- `user_missions`: progreso de cada usuario en las misiones activas
+- `territories`: zona geográfica y usuario con más aportes recientes en ella
+- `favorites`: gasolineras que un usuario marca como favoritas
+- `push_subscriptions`: suscripciones de notificaciones push (Web Push) por usuario y dispositivo
 
 No se almacena histórico de precios de cara al usuario (solo el precio vigente), aunque internamente sí se guarda el registro de eventos por trazabilidad y para el cálculo de reputación.
 
@@ -76,7 +76,7 @@ No se almacena histórico de precios de cara al usuario (solo el precio vigente)
 
 El registro se hace exclusivamente por email, sin contraseña: el usuario recibe un código OTP de un solo uso que confirma su identidad. Esto reduce fricción en el alta y evita la gestión de contraseñas, apoyándose en Supabase Auth. Tras la verificación inicial, la sesión queda guardada en el dispositivo (token de sesión de Supabase Auth) y el usuario entra directamente en aperturas posteriores, sin repetir el OTP salvo que cierre sesión, caduque el token o entre desde un dispositivo nuevo.
 
-*(No es lo que hay construido: `app/auth/page.tsx` implementa registro e inicio de sesión clásicos con email y contraseña, no OTP. Es una desviación importante del plan, no un ajuste menor — pasar a OTP de verdad sería un cambio de flujo de autenticación completo. Ver `CLAUDE.md` para el detalle.)*
+*(No es lo que hay construido: `app/auth/page.tsx` implementa registro e inicio de sesión clásicos con email y contraseña, no OTP. Es una desviación importante del plan, no un ajuste menor: pasar a OTP de verdad sería un cambio de flujo de autenticación completo. Ver `CLAUDE.md` para el detalle.)*
 
 ## 6. Sistema de gamificación
 
@@ -95,7 +95,7 @@ Cada voto de confirmación de precio no vale lo mismo: el peso del voto de un us
 
 ## 8. API pública
 
-Como parte del compromiso de datos abiertos, se expondrá una API REST de solo lectura con los precios agregados y verificados por la comunidad, disponible gratuitamente para otros desarrolladores. Es, además, la pieza que más visibilidad técnica puede aportar al proyecto: cualquier desarrollador que la use en su propia aplicación referencia el proyecto original.
+Se expondrá una API REST de solo lectura con los precios agregados y verificados por la comunidad. Su uso estará sujeto a unas condiciones de uso y a una clave de acceso definidas por el autor, que podrán incluir límites de uso o tarifas. Es, además, la pieza que más visibilidad técnica puede aportar al proyecto: cualquier desarrollador autorizado que la use en su propia aplicación referencia el proyecto original.
 
 ## 9. Moderación
 
@@ -113,13 +113,15 @@ Tema **claro por defecto**, con opción de cambiar a tema oscuro desde el perfil
 
 **Hosting**: se planteó originalmente un VPS propio con Coolify mientras el proyecto no tuviera tráfico relevante, siguiendo el mismo criterio aplicado al resto de proyectos personales (NitidoHome, Convitia, app de finanzas), con Vercel como destino si el proyecto crecía. En la práctica se empezó directamente en **Vercel** (`surtify-b3wb.vercel.app`), sin pasar por el VPS. Next.js se despliega ahí tal cual, sin contenedor Docker.
 
-## 12. Licencia y contribución
+## 12. Licencia y propiedad
 
-El repositorio es público bajo licencia **MIT**. Cualquier persona puede revisar el código, copiarlo, modificarlo y usarlo libremente (incluso con fines comerciales), siempre que mantenga el aviso de copyright original. El objetivo es maximizar la visibilidad técnica del proyecto y atraer colaboradores.
+Copyright (c) 2026 Guillermo David Gámez Escobar. **Todos los derechos reservados.**
 
-**Separación entre código abierto y datos privados.** El código y los datos generados por la comunidad son dos cosas distintas:
+Surtify, su código fuente y su documentación son propiedad exclusiva de su autor. Queda prohibido copiar, modificar, distribuir, publicar, sublicenciar, vender o utilizar el software, total o parcialmente, con fines comerciales o no, sin autorización previa y por escrito del autor. Para solicitar permiso: gamezescobar-guillermo@digicorelive.com
 
-- El **código fuente** (frontend, backend, esquema de la base de datos, lógica de gamificación) es público desde el primer commit.
+**Separación entre código y datos.** El código y los datos generados por la comunidad son dos cosas distintas, y ambos están bajo control del autor:
+
+- El **código fuente** (frontend, backend, esquema de la base de datos, lógica de gamificación) está protegido por la licencia anterior. Su visualización, si el repositorio es visible, es solo informativa.
 - Los **datos reales** (precios reportados, usuarios registrados, fotos, comentarios) viven en una instancia privada de Supabase, nunca en el repositorio. Las credenciales de conexión se gestionan mediante variables de entorno (`.env`), excluidas del repositorio mediante `.gitignore`.
 
-Esta separación permite que el proyecto sea abierto y genere reputación técnica, sin renunciar a que los datos acumulados por la comunidad —el activo real de cara a futuras licencias de datos o acuerdos con gasolineras, siguiendo el modelo de Waze— permanezcan bajo control exclusivo del proyecto.
+Esta separación permite que el proyecto se mantenga bajo control exclusivo del autor, incluidos los datos acumulados por la comunidad (el activo real de cara a futuras licencias de datos o acuerdos con gasolineras, siguiendo el modelo de Waze).
