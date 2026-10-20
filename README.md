@@ -1,6 +1,6 @@
 # Surtify: precios de gasolineras en comunidad
 
-Aplicación de código abierto para encontrar y compartir precios reales de gasolineras, mantenidos por una comunidad de usuarios en tiempo real. Mapa con geolocalización, confirmación de precios estilo Waze, y un sistema de progreso por niveles que convierte reportar un precio en algo parecido a jugar.
+Aplicación para encontrar y compartir precios reales de gasolineras, mantenidos por una comunidad de usuarios en tiempo real. Mapa con geolocalización, confirmación de precios estilo Waze, y un sistema de progreso por niveles que convierte reportar un precio en algo parecido a jugar.
 
 ## Qué hace
 
@@ -39,7 +39,7 @@ supabase/
 docs/         → mockups y documentación adicional
 ```
 
-## Empezar en local
+## Empezar en local (solo autor y personas autorizadas)
 
 ```bash
 git clone <url-del-repo>
@@ -51,37 +51,4 @@ npm run dev
 
 ## Datos y privacidad
 
-El código de este repositorio es público bajo licencia MIT. Los datos generados por la comunidad (precios, usuarios, fotos, comentarios) **no** se incluyen en el repositorio: viven en una instancia privada de Supabase y se gestionan mediante variables de entorno excluidas de `git` (ver `.env.example` y `.gitignore`).
-
-## Desplegar en Vercel
-
-1. Sube este repositorio a GitHub.
-2. En Vercel, "Add New Project" → importa el repositorio. Vercel detecta Next.js automáticamente, no hace falta configuración adicional de build.
-3. En **Project Settings → Environment Variables**, añade:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY` (privada, sin prefijo `NEXT_PUBLIC_` — la usa `app/api/notify-favorites` para leer favoritos y suscripciones)
-   - `NEXT_PUBLIC_MAPBOX_TOKEN`
-   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (notificaciones push, generadas con `npx web-push generate-vapid-keys`)
-4. Despliega. El proyecto arranca correctamente aunque estas variables no estén configuradas todavía (las pantallas de registro y mapa mostrarán errores solo al intentar usarlas, no al cargar).
-5. Dominio propio: cuando compres `surtify.es`, añádelo en **Project Settings → Domains** y sigue las instrucciones de Vercel para apuntar el DNS.
-
-## Pendiente antes de producción
-
-Lista completa y con contexto en [`CLAUDE.md`](./CLAUDE.md#pendiente-en-el-orden-acordado). Resumen:
-
-- Comparar el precio destacado de la ficha de gasolinera contra estaciones cercanas, no contra sí misma.
-- Criterio real de desbloqueo de insignias.
-- ~~Ampliar la importación de datos a más provincias/comunidades autónomas~~ — cobertura nacional completa (52 provincias, ~11.500 gasolineras).
-- Mover la escritura de XP a una función de servidor en vez de un `update` directo desde el cliente.
-- Decidir si se implementan zonas geográficas reales para "territorios".
-- Manejo de errores: `loading.tsx` por sección, revisar errores ignorados en misiones/perfil, try/catch de red.
-- El aviso de "espera reportada" no caduca: decidir un umbral para dejar de mostrarlo si nadie lo actualiza.
-
-## Contribuir
-
-Las pull requests son bienvenidas. Antes de proponer un cambio grande, abre un issue para comentarlo.
-
-## Licencia
-
-MIT — ver [`LICENSE`](./LICENSE).
+Los datos generados por la comunidad (precios,
