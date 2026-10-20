@@ -1,4 +1,4 @@
-# Surtify — precios de gasolineras en comunidad
+# Surtify: precios de gasolineras en comunidad
 
 Aplicación de código abierto para encontrar y compartir precios reales de gasolineras, mantenidos por una comunidad de usuarios en tiempo real. Mapa con geolocalización, confirmación de precios estilo Waze, y un sistema de progreso por niveles que convierte reportar un precio en algo parecido a jugar.
 
@@ -6,7 +6,7 @@ Aplicación de código abierto para encontrar y compartir precios reales de gaso
 
 - Mapa con cobertura nacional (España entera), la ubicación del usuario y la gasolinera más barata cercana; carga las gasolineras por la zona que estás viendo, no todas de golpe
 - Buscador de gasolineras por nombre, marca o dirección, con alcance nacional
-- Colorea el mapa (barato/medio/caro) por el combustible que elijas — diésel, gasolina 95, gasolina 98 o GLP — comparando cada gasolinera contra las que tiene cerca
+- Colorea el mapa (barato/medio/caro) por el combustible que elijas: diésel, gasolina 95, gasolina 98 o GLP; comparando cada gasolinera contra las que tiene cerca
 - Precios reportados y confirmados por la comunidad, sin depender de fuentes oficiales con retraso, para diésel, gasolina 95/98, GLP, AdBlue, gasóleo premium/B y gasolina 95 premium
 - Fichas de gasolinera con fotos, horario de apertura (real, importado del Ministerio), servicios (aseos, pago con tarjeta, tienda, aire y agua, lavado) y tiempo de espera, ambos reportados por la comunidad, y comentarios
 - Sistema de niveles, rachas y misiones para incentivar los aportes
